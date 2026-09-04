@@ -22,6 +22,13 @@ const realReadingRow = document.createElement('div');
 realReadingRow.className = 'form-row';
 realReadingRow.innerHTML = '<label>Horas reales del evento<input id="eventRealHours" type="number" step="1" /><span>Se usará en el título del mantenimiento.</span></label><label>Km reales del evento<input id="eventRealKm" type="number" step="1" /><span>Uso real acumulado en ese momento.</span></label>';
 document.getElementById('eventCost').closest('label').before(realReadingRow);
+const maintenanceParts = document.createElement('fieldset');
+maintenanceParts.className = 'maintenance-parts';
+maintenanceParts.innerHTML = '<legend>Componentes intervenidos</legend><label><input type="checkbox" value="Pistón" /> Pistón</label><label><input type="checkbox" value="Segmentos" /> Segmentos</label><label><input type="checkbox" value="Cilindro" /> Cilindro</label><label><input type="checkbox" value="Biela" /> Biela</label>';
+document.getElementById('eventType').closest('label').after(maintenanceParts);
+function toggleMaintenanceParts() { maintenanceParts.hidden = document.getElementById('eventType').value !== 'Mantenimiento'; }
+document.getElementById('eventType').addEventListener('change', toggleMaintenanceParts);
+toggleMaintenanceParts();
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function formatDate(dateValue) { return new Date(`${dateValue}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', ''); }
 function openModal() {
@@ -33,6 +40,7 @@ function openModal() {
   document.getElementById('eventKm').value = Math.round(Number(bikeData.markerKm));
   document.getElementById('eventRealHours').value = Math.round(Number(bikeData.realHours));
   document.getElementById('eventRealKm').value = Math.round(Number(bikeData.realKm));
+  maintenanceParts.querySelectorAll('input').forEach(input => { input.checked = false; });
   modal.classList.remove('hidden');
   document.getElementById('eventDescription').focus();
 }
@@ -101,16 +109,26 @@ function eventTitle(item) {
   const title = item.type === 'Mantenimiento' ? `${item.description} (${realHoursFor(item) || '—'} h reales)` : item.description;
   return safeText(title);
 }
+function isPistonEvent(item) { return (item.maintenanceParts || []).includes('Pistón') || /cambio pist[oó]n|pist[oó]n\s+[a-c]\b|nuevos segmentos|motor abierto|revisi[oó]n pist[oó]n\/cilindro/i.test(`${item.description} ${item.notes || ''}`); }
 function renderUsageChart() {
   const chart = document.querySelector('#view-dashboard .chart-area svg');
   if (!chart) return;
-  const points = events.map(item => ({ item, hours: Number(realHoursFor(item)) })).filter(point => Number.isFinite(point.hours)).sort((a, b) => a.hours - b.hours);
+  const points = events.map(item => ({ item, hours: Number(realHoursFor(item)) })).filter(point => Number.isFinite(point.hours)).sort((a, b) => String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')));
   if (points.length < 2) return;
-  const maxHours = Math.max(200, ...points.map(point => point.hours));
+  const maxDataHours = Math.max(...points.map(point => point.hours));
+  const maxHours = Math.ceil(maxDataHours / 50) * 50 || 50;
+  const yLabels = [maxHours, maxHours * .75, maxHours * .5, maxHours * .25, 0].map(value => `${Math.round(value)} h`);
+  const labelsContainer = document.querySelector('#view-dashboard .chart-labels');
+  if (labelsContainer) labelsContainer.innerHTML = yLabels.map(label => `<span>${label}</span>`).join('');
+  const monthsContainer = document.querySelector('#view-dashboard .months');
+  if (monthsContainer) {
+    const labelPoints = points.filter((_, index) => index === 0 || index === points.length - 1 || index % Math.max(1, Math.floor(points.length / 4)) === 0).slice(0, 6);
+    monthsContainer.innerHTML = labelPoints.map(point => `<span>${safeText(point.item.date || '')}</span>`).join('');
+  }
   const coords = points.map((point, index) => ({ ...point, x: points.length === 1 ? 0 : (index / (points.length - 1)) * 600, y: 178 - (point.hours / maxHours) * 150 }));
   const line = coords.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
   const area = `${line} L600 190 L0 190 Z`;
-  const pistonPoints = coords.filter(point => /pist[oó]n/i.test(`${point.item.description} ${point.item.notes || ''}`));
+  const pistonPoints = coords.filter(point => isPistonEvent(point.item));
   chart.innerHTML = `<defs><linearGradient id="usage-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f47b20" stop-opacity=".28"/><stop offset="1" stop-color="#f47b20" stop-opacity="0"/></linearGradient></defs><path d="${area}" fill="url(#usage-fill)"/><path d="${line}" fill="none" stroke="#ef7620" stroke-width="3" vector-effect="non-scaling-stroke"/>${pistonPoints.map(point => `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="5" fill="#fff" stroke="#7d5ab2" stroke-width="3"/><text x="${point.x.toFixed(1)}" y="${Math.max(14, point.y - 10).toFixed(1)}" text-anchor="middle" fill="#7d5ab2" font-size="10" font-weight="700">Pistón</text>`).join('')}`;
 }
 function renderTimeline() {
@@ -153,6 +171,8 @@ document.getElementById('timeline').addEventListener('click', event => {
   modal.querySelector('button[type="submit"]').textContent = 'Guardar cambios';
   document.getElementById('eventDate').value = item.dateISO || todayISO();
   document.getElementById('eventType').value = item.type;
+  toggleMaintenanceParts();
+  maintenanceParts.querySelectorAll('input').forEach(input => { input.checked = (item.maintenanceParts || []).includes(input.value); });
   document.getElementById('eventDescription').value = item.description;
   document.getElementById('eventHours').value = item.hours || '';
   document.getElementById('eventKm').value = item.km || '';
@@ -181,9 +201,11 @@ document.getElementById('eventForm').addEventListener('submit', event => {
   localStorage.setItem('motoProfile', JSON.stringify(bikeData));
   const actualHours = Number(bikeData.realHours).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1});
   const actualKm = Number(bikeData.realKm).toLocaleString('es-ES');
+  const selectedParts = [...maintenanceParts.querySelectorAll('input:checked')].map(input => input.value);
+  const partsNote = type === 'Mantenimiento' && selectedParts.length ? `Componentes intervenidos: ${selectedParts.join(', ')}.` : '';
   const markerNote = type === 'Cambio de marcador' ? `Marcador actualizado a ${Number.isFinite(visibleHours) ? visibleHours : bikeData.markerHours} h / ${Number.isFinite(visibleKm) ? visibleKm : bikeData.markerKm} km. Uso real acumulado: ${actualHours} h / ${actualKm} km.` : '';
   const selectedDate = document.getElementById('eventDate').value || todayISO();
-  const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: document.getElementById('eventRealHours').value, realKm: document.getElementById('eventRealKm').value, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), markerNote].filter(Boolean).join(' ') };
+  const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: document.getElementById('eventRealHours').value, realKm: document.getElementById('eventRealKm').value, maintenanceParts: selectedParts, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), partsNote, markerNote].filter(Boolean).join(' ') };
   if (editingIndex === null) events.unshift(editedEvent); else events[editingIndex] = editedEvent;
   localStorage.setItem('motoEvents', JSON.stringify(events));
   renderTimeline();
