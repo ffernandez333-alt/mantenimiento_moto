@@ -19,7 +19,13 @@ document.getElementById('mobileMenu').addEventListener('click', () => sidebar.cl
 const modal = document.getElementById('eventModal');
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function formatDate(dateValue) { return new Date(`${dateValue}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', ''); }
-function openModal() { document.getElementById('eventDate').value = todayISO(); modal.classList.remove('hidden'); document.getElementById('eventDescription').focus(); }
+function openModal() {
+  document.getElementById('eventDate').value = todayISO();
+  document.getElementById('eventHours').value = Number(bikeData.markerHours).toFixed(1);
+  document.getElementById('eventKm').value = Math.round(Number(bikeData.markerKm));
+  modal.classList.remove('hidden');
+  document.getElementById('eventDescription').focus();
+}
 function closeModal() { modal.classList.add('hidden'); }
 ['addEvent', 'addEventDash', 'addEventVida', 'addEventMaint'].forEach(id => document.getElementById(id)?.addEventListener('click', openModal));
 document.getElementById('closeModal').addEventListener('click', closeModal);
@@ -44,8 +50,8 @@ const defaultEvents = [
   { type: 'Documento', description: 'Documento · Informe ITV', date: '08 jul 2026', hours: '', km: '', cost: '', notes: 'ITV favorable.' }
 ];
 let events = JSON.parse(localStorage.getItem('motoEvents') || 'null') || defaultEvents;
-function eventIcon(type) { return type === 'Mantenimiento' ? '✓' : type === 'Documento' ? '▣' : type === 'Sustitución de componente' ? '⚙' : type === 'Cambio de marcador' ? '↔' : '⌁'; }
-function eventClass(type) { return type === 'Mantenimiento' ? 'green' : type === 'Documento' ? 'blue' : type === 'Sustitución de componente' ? 'purple' : 'orange'; }
+function eventIcon(type) { return type === 'Mantenimiento' ? '✓' : type === 'Documento' || type === 'ITV' ? '▣' : type === 'Sustitución de componente' ? '⚙' : type === 'Cambio de marcador' ? '↔' : '⌁'; }
+function eventClass(type) { return type === 'Mantenimiento' ? 'green' : type === 'Documento' || type === 'ITV' ? 'blue' : type === 'Sustitución de componente' ? 'purple' : 'orange'; }
 function safeText(value) { const el = document.createElement('span'); el.textContent = value ?? ''; return el.innerHTML; }
 function renderTimeline() {
   const timeline = document.getElementById('timeline');
@@ -95,6 +101,7 @@ function updateBikeView() {
   document.getElementById('bikeYear').textContent = bikeData.year;
   document.getElementById('bikePlate').textContent = bikeData.plate || 'Sin identificar';
   document.getElementById('bikePhoto').src = bikeData.photo || defaultBikePhoto;
+  document.getElementById('heroBikePhoto').src = bikeData.photo || defaultBikePhoto;
   document.getElementById('realHours').textContent = `${Number(bikeData.realHours).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})} h`;
   document.getElementById('markerHours').textContent = `${Number(bikeData.markerHours).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})} h`;
   document.getElementById('realKm').textContent = `${Number(bikeData.realKm).toLocaleString('es-ES')} km`;
