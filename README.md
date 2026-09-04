@@ -17,6 +17,11 @@ La primera versión es un frontend estático funcional. Incluye:
 - Guardado local de las tareas completadas mediante `localStorage`.
 - Ficha editable de la moto con marca, modelo, año y matrícula/identificador.
 - Guardado local de los datos de la ficha mediante `localStorage`.
+- Foto por defecto del modelo KTM 250 EXC TPI 2021 y posibilidad de sustituirla desde la ficha.
+- Lecturas iniciales separadas para uso real y marcador visible, con soporte para poner el marcador a cero sin perder el acumulado real.
+- Libro de vida persistente con salidas, mantenimientos, gastos, documentos y cambios de marcador.
+- Registro de horas, kilómetros, coste y notas en cada evento.
+- Fecha editable en cada evento, con la fecha actual seleccionada por defecto.
 
 ## Ejecutar en local
 
@@ -33,4 +38,4 @@ La versión actual no usa cuentas, base de datos ni almacenamiento remoto. Para 
 
 ## Siguiente fase
 
-Añadir eventos persistentes, cambios de marcador con cálculo de horas y kilómetros reales, subida de documentos y exportación de datos.
+Añadir historial detallado de cambios de marcador, subida de documentos y exportación de datos.

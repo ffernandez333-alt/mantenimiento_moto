@@ -17,7 +17,9 @@ navItems.forEach(item => item.addEventListener('click', () => showView(item.data
 document.getElementById('mobileMenu').addEventListener('click', () => sidebar.classList.toggle('open'));
 
 const modal = document.getElementById('eventModal');
-function openModal() { modal.classList.remove('hidden'); document.getElementById('eventDescription').focus(); }
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function formatDate(dateValue) { return new Date(`${dateValue}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', ''); }
+function openModal() { document.getElementById('eventDate').value = todayISO(); modal.classList.remove('hidden'); document.getElementById('eventDescription').focus(); }
 function closeModal() { modal.classList.add('hidden'); }
 ['addEvent', 'addEventDash', 'addEventVida', 'addEventMaint'].forEach(id => document.getElementById(id)?.addEventListener('click', openModal));
 document.getElementById('closeModal').addEventListener('click', closeModal);
@@ -35,23 +37,56 @@ document.querySelectorAll('input[data-task]').forEach(input => {
 });
 
 document.getElementById('showAllTasks').addEventListener('click', () => showView('mantenimiento'));
+const defaultEvents = [
+  { type: 'Salida', description: 'Salida · Sierra de Espadán', date: '31 ago 2026', hours: '194,6', km: '2.908', cost: '', notes: 'Ruta con terreno seco y bastante piedra suelta.' },
+  { type: 'Sustitución de componente', description: 'Sustitución · Pastillas de freno traseras', date: '18 ago 2026', hours: '194,6', km: '2.840', cost: '42,50 €', notes: '' },
+  { type: 'Mantenimiento', description: 'Mantenimiento · Revisión de 40 horas', date: '02 ago 2026', hours: '190,4', km: '', cost: '86,20 €', notes: 'Aceite de motor, filtro de aceite, limpieza de filtro de aire y aprietes generales.' },
+  { type: 'Documento', description: 'Documento · Informe ITV', date: '08 jul 2026', hours: '', km: '', cost: '', notes: 'ITV favorable.' }
+];
+let events = JSON.parse(localStorage.getItem('motoEvents') || 'null') || defaultEvents;
+function eventIcon(type) { return type === 'Mantenimiento' ? '✓' : type === 'Documento' ? '▣' : type === 'Sustitución de componente' ? '⚙' : type === 'Cambio de marcador' ? '↔' : '⌁'; }
+function eventClass(type) { return type === 'Mantenimiento' ? 'green' : type === 'Documento' ? 'blue' : type === 'Sustitución de componente' ? 'purple' : 'orange'; }
+function safeText(value) { const el = document.createElement('span'); el.textContent = value ?? ''; return el.innerHTML; }
+function renderTimeline() {
+  const timeline = document.getElementById('timeline');
+  if (!timeline) return;
+  timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + events.map(item => `<div class="timeline-event"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${safeText(item.description)}</strong><span>${safeText(item.date)}${item.hours ? ` · ${safeText(item.hours)} h` : ''}${item.km ? ` · ${safeText(item.km)} km` : ''}</span>${item.notes ? `<p>${safeText(item.notes)}</p>` : ''}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong></div></div>`).join('');
+}
+renderTimeline();
+
 document.getElementById('eventForm').addEventListener('submit', event => {
   event.preventDefault();
   const description = document.getElementById('eventDescription').value.trim();
   if (!description) return;
-  const timeline = document.getElementById('timeline');
-  const item = document.createElement('div');
-  item.className = 'timeline-event';
-  item.innerHTML = `<div class="timeline-dot orange"></div><div class="timeline-card"><div class="activity-icon orange">✦</div><div class="activity-main"><strong>${description}</strong><span>Hoy · Evento registrado</span></div><strong class="activity-cost">—</strong></div>`;
-  timeline.appendChild(item);
+  const type = document.getElementById('eventType').value;
+  const visibleHours = Number(document.getElementById('eventHours').value);
+  const visibleKm = Number(document.getElementById('eventKm').value);
+  if (Number.isFinite(visibleHours) && document.getElementById('eventHours').value !== '') {
+    if (visibleHours >= Number(bikeData.markerHours)) bikeData.realHours = Number(bikeData.realHours) + visibleHours - Number(bikeData.markerHours);
+    bikeData.markerHours = visibleHours;
+  }
+  if (Number.isFinite(visibleKm) && document.getElementById('eventKm').value !== '') {
+    if (visibleKm >= Number(bikeData.markerKm)) bikeData.realKm = Number(bikeData.realKm) + visibleKm - Number(bikeData.markerKm);
+    bikeData.markerKm = visibleKm;
+  }
+  localStorage.setItem('motoProfile', JSON.stringify(bikeData));
+  const actualHours = Number(bikeData.realHours).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1});
+  const actualKm = Number(bikeData.realKm).toLocaleString('es-ES');
+  const markerNote = type === 'Cambio de marcador' ? `Marcador actualizado a ${Number.isFinite(visibleHours) ? visibleHours : bikeData.markerHours} h / ${Number.isFinite(visibleKm) ? visibleKm : bikeData.markerKm} km. Uso real acumulado: ${actualHours} h / ${actualKm} km.` : '';
+  const selectedDate = document.getElementById('eventDate').value || todayISO();
+  events.unshift({ type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), markerNote].filter(Boolean).join(' ') });
+  localStorage.setItem('motoEvents', JSON.stringify(events));
+  renderTimeline();
+  updateBikeView();
   closeModal();
   event.target.reset();
   showView('vida');
 });
 
 const bikeModal = document.getElementById('bikeModal');
-const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN' };
+const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 194.6, markerHours: 194.6, realKm: 2908, markerKm: 2908 };
 const bikeData = { ...bikeDefaults, ...JSON.parse(localStorage.getItem('motoProfile') || '{}') };
+const defaultBikePhoto = 'assets/ktm-250-exc-tpi-2021.png';
 function updateBikeView() {
   document.getElementById('bikeName').textContent = `${bikeData.brand} ${bikeData.model}`;
   document.getElementById('bikeSubtitle').textContent = `Enduro · ${bikeData.year} · 2 tiempos`;
@@ -59,6 +94,11 @@ function updateBikeView() {
   document.getElementById('bikeModel').textContent = bikeData.model;
   document.getElementById('bikeYear').textContent = bikeData.year;
   document.getElementById('bikePlate').textContent = bikeData.plate || 'Sin identificar';
+  document.getElementById('bikePhoto').src = bikeData.photo || defaultBikePhoto;
+  document.getElementById('realHours').textContent = `${Number(bikeData.realHours).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})} h`;
+  document.getElementById('markerHours').textContent = `${Number(bikeData.markerHours).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})} h`;
+  document.getElementById('realKm').textContent = `${Number(bikeData.realKm).toLocaleString('es-ES')} km`;
+  document.getElementById('markerKm').textContent = `${Number(bikeData.markerKm).toLocaleString('es-ES')} km`;
 }
 updateBikeView();
 document.getElementById('editBike').addEventListener('click', () => {
@@ -66,6 +106,11 @@ document.getElementById('editBike').addEventListener('click', () => {
   document.getElementById('formModel').value = bikeData.model;
   document.getElementById('formYear').value = bikeData.year;
   document.getElementById('formPlate').value = bikeData.plate;
+  document.getElementById('formRealHours').value = bikeData.realHours;
+  document.getElementById('formMarkerHours').value = bikeData.markerHours;
+  document.getElementById('formRealKm').value = bikeData.realKm;
+  document.getElementById('formMarkerKm').value = bikeData.markerKm;
+  document.getElementById('formPhoto').value = '';
   bikeModal.classList.remove('hidden');
 });
 function closeBikeModal() { bikeModal.classList.add('hidden'); }
@@ -78,7 +123,11 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   bikeData.model = document.getElementById('formModel').value.trim();
   bikeData.year = document.getElementById('formYear').value;
   bikeData.plate = document.getElementById('formPlate').value.trim();
-  localStorage.setItem('motoProfile', JSON.stringify(bikeData));
-  updateBikeView();
-  closeBikeModal();
+  bikeData.realHours = Number(document.getElementById('formRealHours').value);
+  bikeData.markerHours = Number(document.getElementById('formMarkerHours').value);
+  bikeData.realKm = Number(document.getElementById('formRealKm').value);
+  bikeData.markerKm = Number(document.getElementById('formMarkerKm').value);
+  const file = document.getElementById('formPhoto').files[0];
+  const save = () => { localStorage.setItem('motoProfile', JSON.stringify(bikeData)); updateBikeView(); closeBikeModal(); };
+  if (file) { const reader = new FileReader(); reader.onload = () => { bikeData.photo = reader.result; save(); }; reader.readAsDataURL(file); } else save();
 });
