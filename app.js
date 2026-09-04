@@ -86,11 +86,20 @@ function eventReadings(item) {
   const real = [item.realHours ? `${item.realHours} h` : '', item.realKm ? `${item.realKm} km` : ''].filter(Boolean).join(' · ');
   return [marker ? `Marcador: ${marker}` : '', real ? `Reales: ${real}` : ''].filter(Boolean).join(' · ');
 }
+function realHoursFor(item) {
+  if (item.realHours) return item.realHours;
+  const noteMatch = String(item.notes || '').match(/(\d+(?:[.,]\d+)?)\s*h(?: entre paréntesis)?/i);
+  return noteMatch ? noteMatch[1].replace(',', '.') : item.hours;
+}
+function eventTitle(item) {
+  const title = item.type === 'Mantenimiento' ? `${item.description} (${realHoursFor(item) || '—'} h reales)` : item.description;
+  return safeText(title);
+}
 function renderTimeline() {
   const timeline = document.getElementById('timeline');
   if (!timeline) return;
   const orderedEvents = events.map((item, index) => ({ item, index })).sort((a, b) => { const result = String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')); return sortDirection === 'desc' ? -result : result; });
-  timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + orderedEvents.map(({ item, index }) => `<div class="timeline-event"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${safeText(item.description)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes ? `<p>${safeText(item.notes)}</p>` : ''}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button></div></div>`).join('');
+  timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + orderedEvents.map(({ item, index }) => `<div class="timeline-event"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${eventTitle(item)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes ? `<p>${safeText(item.notes)}</p>` : ''}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button></div></div>`).join('');
 }
 renderTimeline();
 
@@ -152,7 +161,7 @@ document.getElementById('eventForm').addEventListener('submit', event => {
   const actualKm = Number(bikeData.realKm).toLocaleString('es-ES');
   const markerNote = type === 'Cambio de marcador' ? `Marcador actualizado a ${Number.isFinite(visibleHours) ? visibleHours : bikeData.markerHours} h / ${Number.isFinite(visibleKm) ? visibleKm : bikeData.markerKm} km. Uso real acumulado: ${actualHours} h / ${actualKm} km.` : '';
   const selectedDate = document.getElementById('eventDate').value || todayISO();
-  const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: editingIndex === null ? '' : events[editingIndex].realHours, realKm: editingIndex === null ? '' : events[editingIndex].realKm, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), markerNote].filter(Boolean).join(' ') };
+  const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: editingIndex === null ? String(Math.round(Number(bikeData.realHours))) : events[editingIndex].realHours, realKm: editingIndex === null ? String(Math.round(Number(bikeData.realKm))) : events[editingIndex].realKm, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), markerNote].filter(Boolean).join(' ') };
   if (editingIndex === null) events.unshift(editedEvent); else events[editingIndex] = editedEvent;
   localStorage.setItem('motoEvents', JSON.stringify(events));
   renderTimeline();
