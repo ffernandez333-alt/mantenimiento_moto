@@ -77,6 +77,7 @@ const defaultEvents = [
   { type:'Mantenimiento',description:'Revisión de 80 horas y cilindro',date:'26 jul 2026',dateISO:'2026-07-26',hours:'320',km:'X.XXX',realHours:'576',realKm:'X.XXX',notes:'El valor entre paréntesis es el real. Kilometraje del marcador y real no indicado con una cifra. Rodamientos de rueda, dirección, basculante, suspensiones, filtros, revisión de pistón/cilindro y envío del cilindro a BS para nicasilar.' }
 ];
 let events = JSON.parse(localStorage.getItem('motoEvents') || 'null') || defaultEvents;
+let sortDirection = localStorage.getItem('motoSortDirection') || 'desc';
 function eventIcon(type) { return type === 'Mantenimiento' ? '✓' : type === 'Documento' || type === 'ITV' ? '▣' : type === 'Sustitución de componente' ? '⚙' : type === 'Cambio de marcador' ? '↔' : '⌁'; }
 function eventClass(type) { return type === 'Mantenimiento' ? 'green' : type === 'Documento' || type === 'ITV' ? 'blue' : type === 'Sustitución de componente' ? 'purple' : 'orange'; }
 function safeText(value) { const el = document.createElement('span'); el.textContent = value ?? ''; return el.innerHTML; }
@@ -88,8 +89,8 @@ function eventReadings(item) {
 function renderTimeline() {
   const timeline = document.getElementById('timeline');
   if (!timeline) return;
-  const orderedEvents = events.map((item, index) => ({ item, index })).sort((a, b) => String(b.item.dateISO || '').localeCompare(String(a.item.dateISO || '')));
-  timeline.innerHTML = '<div class="timeline-date">HISTORIAL · MÁS RECIENTE PRIMERO</div>' + orderedEvents.map(({ item, index }) => `<div class="timeline-event"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${safeText(item.description)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes ? `<p>${safeText(item.notes)}</p>` : ''}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button></div></div>`).join('');
+  const orderedEvents = events.map((item, index) => ({ item, index })).sort((a, b) => { const result = String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')); return sortDirection === 'desc' ? -result : result; });
+  timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + orderedEvents.map(({ item, index }) => `<div class="timeline-event"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${safeText(item.description)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes ? `<p>${safeText(item.notes)}</p>` : ''}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button></div></div>`).join('');
 }
 renderTimeline();
 
@@ -105,6 +106,13 @@ importHistoryButton.addEventListener('click', () => {
   showView('vida');
 });
 document.querySelector('.filters')?.appendChild(importHistoryButton);
+const sortSelect = document.createElement('select');
+sortSelect.className = 'filter-button sort-events';
+sortSelect.setAttribute('aria-label', 'Ordenar historial');
+sortSelect.innerHTML = '<option value="desc">Más reciente primero</option><option value="asc">Más antiguo primero</option>';
+sortSelect.value = sortDirection;
+sortSelect.addEventListener('change', () => { sortDirection = sortSelect.value; localStorage.setItem('motoSortDirection', sortDirection); renderTimeline(); });
+document.querySelector('.filters')?.appendChild(sortSelect);
 
 document.getElementById('timeline').addEventListener('click', event => {
   const button = event.target.closest('.event-edit');
