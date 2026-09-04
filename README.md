@@ -15,6 +15,8 @@ La primera versión es un frontend estático funcional. Incluye:
 - Banco técnico.
 - Navegación responsive para móvil y escritorio.
 - Guardado local de las tareas completadas mediante `localStorage`.
+- Ficha editable de la moto con marca, modelo, año y matrícula/identificador.
+- Guardado local de los datos de la ficha mediante `localStorage`.
 
 ## Ejecutar en local
 
@@ -31,4 +33,4 @@ La versión actual no usa cuentas, base de datos ni almacenamiento remoto. Para 
 
 ## Siguiente fase
 
-Añadir ficha editable de la moto, eventos persistentes, cambios de marcador con cálculo de horas y kilómetros reales, subida de documentos y exportación de datos.
+Añadir eventos persistentes, cambios de marcador con cálculo de horas y kilómetros reales, subida de documentos y exportación de datos.
