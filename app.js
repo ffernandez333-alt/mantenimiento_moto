@@ -101,6 +101,18 @@ function eventTitle(item) {
   const title = item.type === 'Mantenimiento' ? `${item.description} (${realHoursFor(item) || '—'} h reales)` : item.description;
   return safeText(title);
 }
+function renderUsageChart() {
+  const chart = document.querySelector('#view-dashboard .chart-area svg');
+  if (!chart) return;
+  const points = events.map(item => ({ item, hours: Number(realHoursFor(item)) })).filter(point => Number.isFinite(point.hours)).sort((a, b) => a.hours - b.hours);
+  if (points.length < 2) return;
+  const maxHours = Math.max(200, ...points.map(point => point.hours));
+  const coords = points.map((point, index) => ({ ...point, x: points.length === 1 ? 0 : (index / (points.length - 1)) * 600, y: 178 - (point.hours / maxHours) * 150 }));
+  const line = coords.map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
+  const area = `${line} L600 190 L0 190 Z`;
+  const pistonPoints = coords.filter(point => /pist[oó]n/i.test(`${point.item.description} ${point.item.notes || ''}`));
+  chart.innerHTML = `<defs><linearGradient id="usage-fill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f47b20" stop-opacity=".28"/><stop offset="1" stop-color="#f47b20" stop-opacity="0"/></linearGradient></defs><path d="${area}" fill="url(#usage-fill)"/><path d="${line}" fill="none" stroke="#ef7620" stroke-width="3" vector-effect="non-scaling-stroke"/>${pistonPoints.map(point => `<circle cx="${point.x.toFixed(1)}" cy="${point.y.toFixed(1)}" r="5" fill="#fff" stroke="#7d5ab2" stroke-width="3"/><text x="${point.x.toFixed(1)}" y="${Math.max(14, point.y - 10).toFixed(1)}" text-anchor="middle" fill="#7d5ab2" font-size="10" font-weight="700">Pistón</text>`).join('')}`;
+}
 function renderTimeline() {
   const timeline = document.getElementById('timeline');
   if (!timeline) return;
@@ -108,6 +120,7 @@ function renderTimeline() {
   timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + orderedEvents.map(({ item, index }) => `<div class="timeline-event"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${eventTitle(item)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes ? `<p>${safeText(item.notes)}</p>` : ''}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button></div></div>`).join('');
 }
 renderTimeline();
+renderUsageChart();
 
 const importHistoryButton = document.createElement('button');
 importHistoryButton.className = 'quiet-button import-history';
@@ -118,6 +131,7 @@ importHistoryButton.addEventListener('click', () => {
   events = defaultEvents.map(item => ({ ...item }));
   localStorage.setItem('motoEvents', JSON.stringify(events));
   renderTimeline();
+  renderUsageChart();
   showView('vida');
 });
 document.querySelector('.filters')?.appendChild(importHistoryButton);
@@ -174,6 +188,7 @@ document.getElementById('eventForm').addEventListener('submit', event => {
   localStorage.setItem('motoEvents', JSON.stringify(events));
   renderTimeline();
   updateBikeView();
+  renderUsageChart();
   closeModal();
   event.target.reset();
   editingIndex = null;
