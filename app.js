@@ -18,6 +18,10 @@ document.getElementById('mobileMenu').addEventListener('click', () => sidebar.cl
 
 const modal = document.getElementById('eventModal');
 let editingIndex = null;
+const realReadingRow = document.createElement('div');
+realReadingRow.className = 'form-row';
+realReadingRow.innerHTML = '<label>Horas reales del evento<input id="eventRealHours" type="number" step="1" /><span>Se usará en el título del mantenimiento.</span></label><label>Km reales del evento<input id="eventRealKm" type="number" step="1" /><span>Uso real acumulado en ese momento.</span></label>';
+document.getElementById('eventCost').closest('label').before(realReadingRow);
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function formatDate(dateValue) { return new Date(`${dateValue}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', ''); }
 function openModal() {
@@ -27,6 +31,8 @@ function openModal() {
   document.getElementById('eventDate').value = todayISO();
   document.getElementById('eventHours').value = Number(bikeData.markerHours).toFixed(1);
   document.getElementById('eventKm').value = Math.round(Number(bikeData.markerKm));
+  document.getElementById('eventRealHours').value = Math.round(Number(bikeData.realHours));
+  document.getElementById('eventRealKm').value = Math.round(Number(bikeData.realKm));
   modal.classList.remove('hidden');
   document.getElementById('eventDescription').focus();
 }
@@ -136,6 +142,8 @@ document.getElementById('timeline').addEventListener('click', event => {
   document.getElementById('eventDescription').value = item.description;
   document.getElementById('eventHours').value = item.hours || '';
   document.getElementById('eventKm').value = item.km || '';
+  document.getElementById('eventRealHours').value = item.realHours || item.hours || '';
+  document.getElementById('eventRealKm').value = item.realKm || item.km || '';
   document.getElementById('eventCost').value = (item.cost || '').replace(' €', '').replace(',', '.');
   document.getElementById('eventNotes').value = item.notes || '';
   modal.classList.remove('hidden');
@@ -161,7 +169,7 @@ document.getElementById('eventForm').addEventListener('submit', event => {
   const actualKm = Number(bikeData.realKm).toLocaleString('es-ES');
   const markerNote = type === 'Cambio de marcador' ? `Marcador actualizado a ${Number.isFinite(visibleHours) ? visibleHours : bikeData.markerHours} h / ${Number.isFinite(visibleKm) ? visibleKm : bikeData.markerKm} km. Uso real acumulado: ${actualHours} h / ${actualKm} km.` : '';
   const selectedDate = document.getElementById('eventDate').value || todayISO();
-  const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: editingIndex === null ? String(Math.round(Number(bikeData.realHours))) : events[editingIndex].realHours, realKm: editingIndex === null ? String(Math.round(Number(bikeData.realKm))) : events[editingIndex].realKm, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), markerNote].filter(Boolean).join(' ') };
+  const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: document.getElementById('eventRealHours').value, realKm: document.getElementById('eventRealKm').value, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), markerNote].filter(Boolean).join(' ') };
   if (editingIndex === null) events.unshift(editedEvent); else events[editingIndex] = editedEvent;
   localStorage.setItem('motoEvents', JSON.stringify(events));
   renderTimeline();
