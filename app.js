@@ -88,7 +88,8 @@ function eventReadings(item) {
 function renderTimeline() {
   const timeline = document.getElementById('timeline');
   if (!timeline) return;
-  timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + events.map((item, index) => `<div class="timeline-event"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${safeText(item.description)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes ? `<p>${safeText(item.notes)}</p>` : ''}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button></div></div>`).join('');
+  const orderedEvents = events.map((item, index) => ({ item, index })).sort((a, b) => String(b.item.dateISO || '').localeCompare(String(a.item.dateISO || '')));
+  timeline.innerHTML = '<div class="timeline-date">HISTORIAL · MÁS RECIENTE PRIMERO</div>' + orderedEvents.map(({ item, index }) => `<div class="timeline-event"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${safeText(item.description)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes ? `<p>${safeText(item.notes)}</p>` : ''}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button></div></div>`).join('');
 }
 renderTimeline();
 
