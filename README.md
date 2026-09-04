@@ -22,6 +22,7 @@ La primera versión es un frontend estático funcional. Incluye:
 - Libro de vida persistente con salidas, mantenimientos, gastos, documentos y cambios de marcador.
 - Registro de horas, kilómetros, coste y notas en cada evento.
 - Fecha editable en cada evento, con la fecha actual seleccionada por defecto.
+- Las horas y kilómetros del evento se precargan con la lectura actual del marcador y siguen siendo editables.
 
 ## Ejecutar en local
 

@@ -65,8 +65,8 @@ document.getElementById('eventForm').addEventListener('submit', event => {
   const description = document.getElementById('eventDescription').value.trim();
   if (!description) return;
   const type = document.getElementById('eventType').value;
-  const visibleHours = Number(document.getElementById('eventHours').value);
-  const visibleKm = Number(document.getElementById('eventKm').value);
+  const visibleHours = Math.round(Number(document.getElementById('eventHours').value));
+  const visibleKm = Math.round(Number(document.getElementById('eventKm').value));
   if (Number.isFinite(visibleHours) && document.getElementById('eventHours').value !== '') {
     if (visibleHours >= Number(bikeData.markerHours)) bikeData.realHours = Number(bikeData.realHours) + visibleHours - Number(bikeData.markerHours);
     bikeData.markerHours = visibleHours;
@@ -106,6 +106,19 @@ function updateBikeView() {
   document.getElementById('markerHours').textContent = `${Number(bikeData.markerHours).toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1})} h`;
   document.getElementById('realKm').textContent = `${Number(bikeData.realKm).toLocaleString('es-ES')} km`;
   document.getElementById('markerKm').textContent = `${Number(bikeData.markerKm).toLocaleString('es-ES')} km`;
+  const dashboardCards = document.querySelectorAll('#view-dashboard .stat-card');
+  if (dashboardCards.length >= 2) {
+    const realHours = Math.round(Number(bikeData.realHours)).toLocaleString('es-ES');
+    const realKm = Math.round(Number(bikeData.realKm)).toLocaleString('es-ES');
+    const markerHours = Math.round(Number(bikeData.markerHours)).toLocaleString('es-ES');
+    const markerKm = Math.round(Number(bikeData.markerKm)).toLocaleString('es-ES');
+    dashboardCards[0].querySelector('strong').innerHTML = `${realHours} <small>h</small>`;
+    dashboardCards[1].querySelector('strong').innerHTML = `${realKm} <small>km</small>`;
+    dashboardCards[0].querySelector('.stat-reference')?.remove();
+    dashboardCards[1].querySelector('.stat-reference')?.remove();
+    dashboardCards[0].insertAdjacentHTML('beforeend', `<span class="stat-reference">Marcador: ${markerHours} h</span>`);
+    dashboardCards[1].insertAdjacentHTML('beforeend', `<span class="stat-reference">Marcador: ${markerKm} km</span>`);
+  }
 }
 updateBikeView();
 document.getElementById('editBike').addEventListener('click', () => {
@@ -130,10 +143,10 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   bikeData.model = document.getElementById('formModel').value.trim();
   bikeData.year = document.getElementById('formYear').value;
   bikeData.plate = document.getElementById('formPlate').value.trim();
-  bikeData.realHours = Number(document.getElementById('formRealHours').value);
-  bikeData.markerHours = Number(document.getElementById('formMarkerHours').value);
-  bikeData.realKm = Number(document.getElementById('formRealKm').value);
-  bikeData.markerKm = Number(document.getElementById('formMarkerKm').value);
+  bikeData.realHours = Math.round(Number(document.getElementById('formRealHours').value));
+  bikeData.markerHours = Math.round(Number(document.getElementById('formMarkerHours').value));
+  bikeData.realKm = Math.round(Number(document.getElementById('formRealKm').value));
+  bikeData.markerKm = Math.round(Number(document.getElementById('formMarkerKm').value));
   const file = document.getElementById('formPhoto').files[0];
   const save = () => { localStorage.setItem('motoProfile', JSON.stringify(bikeData)); updateBikeView(); closeBikeModal(); };
   if (file) { const reader = new FileReader(); reader.onload = () => { bikeData.photo = reader.result; save(); }; reader.readAsDataURL(file); } else save();
