@@ -3,15 +3,7 @@ const pages = document.querySelectorAll('.page');
 const breadcrumb = document.getElementById('breadcrumbCurrent');
 const sidebar = document.getElementById('sidebar');
 
-const labels = { hoy: 'Centro de control', dashboard: 'Centro de control', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', documentos: 'Documentos y gastos', tecnico: 'Banco técnico' };
-const technicalDashboardTitle = document.querySelector('#view-dashboard h1');
-if (technicalDashboardTitle) technicalDashboardTitle.textContent = 'Telemetría y uso';
-const technicalDashboardEyebrow = document.querySelector('#view-dashboard .eyebrow');
-if (technicalDashboardEyebrow) technicalDashboardEyebrow.textContent = 'Datos técnicos';
-const technicalDashboardSubtitle = document.querySelector('#view-dashboard .subtitle');
-if (technicalDashboardSubtitle) technicalDashboardSubtitle.textContent = 'Horas, kilómetros, gastos y próximos trabajos de tu KTM.';
-const controlSubtitle = document.querySelector('#view-hoy .page-heading .subtitle');
-if (controlSubtitle) controlSubtitle.textContent = 'Estado, uso y mantenimiento de tu KTM en una sola vista.';
+const labels = { hoy: 'Mis motos', dashboard: 'Mis motos', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', documentos: 'Documentos y gastos', tecnico: 'Banco técnico' };
 const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908 };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
@@ -22,13 +14,13 @@ function bikeStorageKey(name) { return `${name}:${activeBikeId}`; }
 function saveEvents() { localStorage.setItem(bikeStorageKey('motoEvents'), JSON.stringify(events)); }
 
 function showView(view) {
-  const controlView = view === 'hoy' || view === 'dashboard';
+  const targetView = view === 'hoy' || view === 'dashboard' ? 'motos' : view;
   if (view === 'vida' && typeof refreshMaintenanceLifeEvents === 'function') {
     try { refreshMaintenanceLifeEvents(); } catch (error) { console.error('No se pudo actualizar el Libro de vida.', error); }
   }
-  pages.forEach(page => page.classList.toggle('hidden', controlView ? !['view-hoy', 'view-dashboard'].includes(page.id) : page.id !== `view-${view}`));
-  document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === (controlView ? 'hoy' : view)));
-  breadcrumb.textContent = labels[view] || 'Centro de control';
+  pages.forEach(page => page.classList.toggle('hidden', page.id !== `view-${targetView}`));
+  document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === targetView));
+  breadcrumb.textContent = labels[targetView] || 'Mis motos';
   sidebar.classList.remove('open');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -516,19 +508,21 @@ function renderTodayView() {
 }
 function updateBikeView() {
   renderBikeIdentity();
-  document.getElementById('bikeName').textContent = `${bikeData.brand} ${bikeData.model}`;
-  document.getElementById('bikeSubtitle').textContent = `${bikeData.year} · ${bikeData.plate || bikeData.id}`;
-  document.getElementById('bikeBrand').textContent = bikeData.brand;
-  document.getElementById('bikeModel').textContent = bikeData.model;
-  document.getElementById('bikeYear').textContent = bikeData.year;
-  document.getElementById('bikePlate').textContent = bikeData.plate || 'Sin identificar';
-  document.getElementById('bikePhoto').src = profilePhoto(bikeData);
-  document.getElementById('heroBikePhoto').src = profilePhoto(bikeData);
-  document.getElementById('heroBikePhoto').alt = `${bikeData.brand} ${bikeData.model}`;
-  document.getElementById('realHours').textContent = `${Math.round(Number(bikeData.realHours)).toLocaleString('es-ES')} h`;
-  document.getElementById('markerHours').textContent = `${Math.round(Number(bikeData.markerHours)).toLocaleString('es-ES')} h`;
-  document.getElementById('realKm').textContent = `${Number(bikeData.realKm).toLocaleString('es-ES')} km`;
-  document.getElementById('markerKm').textContent = `${Number(bikeData.markerKm).toLocaleString('es-ES')} km`;
+  const setText = (id, value) => { const element = document.getElementById(id); if (element) element.textContent = value; };
+  setText('bikeName', `${bikeData.brand} ${bikeData.model}`);
+  setText('bikeSubtitle', `${bikeData.year} · ${bikeData.plate || bikeData.id}`);
+  setText('bikeBrand', bikeData.brand);
+  setText('bikeModel', bikeData.model);
+  setText('bikeYear', bikeData.year);
+  setText('bikePlate', bikeData.plate || 'Sin identificar');
+  const bikePhoto = document.getElementById('bikePhoto');
+  if (bikePhoto) bikePhoto.src = profilePhoto(bikeData);
+  const heroBikePhoto = document.getElementById('heroBikePhoto');
+  if (heroBikePhoto) { heroBikePhoto.src = profilePhoto(bikeData); heroBikePhoto.alt = `${bikeData.brand} ${bikeData.model}`; }
+  setText('realHours', `${Math.round(Number(bikeData.realHours)).toLocaleString('es-ES')} h`);
+  setText('markerHours', `${Math.round(Number(bikeData.markerHours)).toLocaleString('es-ES')} h`);
+  setText('realKm', `${Number(bikeData.realKm).toLocaleString('es-ES')} km`);
+  setText('markerKm', `${Number(bikeData.markerKm).toLocaleString('es-ES')} km`);
   const dashboardCards = document.querySelectorAll('#view-dashboard .stat-card');
   if (dashboardCards.length >= 2) {
     const realHours = Math.round(Number(bikeData.realHours)).toLocaleString('es-ES');
@@ -616,14 +610,22 @@ function renderBikeIdentity() {
     identity.querySelector('.selected-bike-photo').alt = name;
   });
 }
+function latestMaintenanceEvent() {
+  return [...events].filter(item => item.type === 'Mantenimiento').sort((a, b) => String(b.dateISO || '').localeCompare(String(a.dateISO || '')))[0] || null;
+}
 function renderAllBikeProfiles() {
   const view = document.getElementById('view-motos');
   const selected = view.querySelector('.bike-profile');
   selected.classList.add('selected-profile');
-  selected.querySelector('.status-pill').textContent = '✓ Moto seleccionada';
+  selected.querySelector('.status-pill')?.remove();
   selected.querySelector('.profile-id').textContent = `ID · ${activeBikeId}`;
   selected.querySelector('#bikePhoto').alt = `${bikeData.brand} ${bikeData.model}`;
   selected.querySelector('.photo-label').textContent = profilePhoto(bikeData).endsWith('moto-sin-foto.svg') ? 'Añade una foto desde Editar ficha' : `${bikeData.brand} ${bikeData.model}`;
+  const latest = latestMaintenanceEvent();
+  const selectedGrid = selected.querySelector('.detail-grid');
+  if (selectedGrid) {
+    selectedGrid.innerHTML = `<div><span>Horas reales</span><strong>${Math.round(Number(bikeData.realHours)).toLocaleString('es-ES')} h</strong></div><div><span>Kilómetros reales</span><strong>${Number(bikeData.realKm).toLocaleString('es-ES')} km</strong></div><div class="last-maintenance-detail"><span>Último mantenimiento</span><strong>${safeText(latest?.description || 'Sin mantenimientos registrados')}</strong><small>${safeText(latest?.date || 'Registra el primero desde Mantenimiento')}</small></div>`;
+  }
   view.querySelector('.page-heading .subtitle').textContent = `${bikeProfiles.length} ${bikeProfiles.length === 1 ? 'moto guardada' : 'motos guardadas'}. Selecciona una ficha para consultar su actividad y mantenimiento.`;
   let others = view.querySelector('.other-bike-profiles');
   if (!others) {
@@ -673,15 +675,20 @@ function saveBikeProfiles() {
 function renderBikeSwitcher() {
   const switcher = document.querySelector('.bike-switcher');
   if (!switcher) return;
-  switcher.innerHTML = `<div class="bike-list" aria-label="Mis motos">${bikeProfiles.map(profile => `<button type="button" class="bike-list-item ${profile.id === activeBikeId ? 'active' : ''}" aria-pressed="${profile.id === activeBikeId}" data-bike-id="${safeText(profile.id)}"><img src="${profilePhoto(profile)}" alt="" /><span><strong>${safeText(`${profile.brand} ${profile.model}`)}</strong><small>${safeText(`${profile.year} · ${profile.plate || profile.id}`)}</small></span></button>`).join('')}</div>`;
+  const sections = [{ view: 'vida', label: 'Libro de vida', icon: '↗' }, { view: 'mantenimiento', label: 'Mantenimiento', icon: '⌁' }, { view: 'componentes', label: 'Componentes', icon: '◫' }, { view: 'documentos', label: 'Documentos y gastos', icon: '□' }];
+  switcher.innerHTML = `<div class="bike-list-heading">Mis motos</div><div class="bike-tree" aria-label="Mis motos">${bikeProfiles.map(profile => `<div class="bike-tree-item"><button type="button" class="bike-list-item ${profile.id === activeBikeId ? 'active' : ''}" aria-pressed="${profile.id === activeBikeId}" data-bike-id="${safeText(profile.id)}"><img src="${profilePhoto(profile)}" alt="" /><span><strong>${safeText(`${profile.brand} ${profile.model}`)}</strong><small>${safeText(`${profile.year} · ${profile.plate || profile.id}`)}</small></span><b aria-hidden="true">${profile.id === activeBikeId ? '⌄' : '›'}</b></button>${profile.id === activeBikeId ? `<div class="bike-section-list">${sections.map(section => `<button type="button" class="bike-section-item" data-section-view="${section.view}"><span>${section.icon}</span>${section.label}</button>`).join('')}</div>` : ''}</div>`).join('')}</div><button type="button" class="sidebar-add-bike" id="addBikeSidebar"><span>＋</span> Añadir moto</button>`;
   switcher.querySelectorAll('.bike-list-item').forEach(button => button.addEventListener('click', () => selectBike(button.dataset.bikeId)));
+  switcher.querySelectorAll('.bike-section-item').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); showView(button.dataset.sectionView); }));
 }
 renderBikeSwitcher();
+document.querySelectorAll('.nav-item[data-view]').forEach(item => item.remove());
+document.querySelector('.nav')?.remove();
 let creatingBike = false;
 const addBikeButton = document.createElement('button');
-addBikeButton.className = 'primary-button';
+addBikeButton.className = 'primary-button sidebar-only-add-bike';
 addBikeButton.id = 'addBike';
 addBikeButton.innerHTML = '<span>＋</span> Añadir moto';
+document.querySelector('.bike-switcher')?.addEventListener('click', event => { if (event.target.closest('#addBikeSidebar')) addBikeButton.click(); });
 document.querySelector('#view-motos .page-heading')?.appendChild(addBikeButton);
 const editBikeButton = document.getElementById('editBike');
 document.querySelector('#view-motos .profile-title')?.appendChild(editBikeButton);
@@ -1169,5 +1176,5 @@ document.getElementById('backupFile').addEventListener('change', async event => 
 });
 const returnBikeView = sessionStorage.getItem('motoReturnView');
 if (returnBikeView && labels[returnBikeView]) showView(returnBikeView);
-else showView('hoy');
+else showView('motos');
 sessionStorage.removeItem('motoReturnView');
