@@ -3,7 +3,15 @@ const pages = document.querySelectorAll('.page');
 const breadcrumb = document.getElementById('breadcrumbCurrent');
 const sidebar = document.getElementById('sidebar');
 
-const labels = { hoy: 'Hoy', dashboard: 'Dashboard', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', documentos: 'Documentos y gastos', tecnico: 'Banco técnico' };
+const labels = { hoy: 'Centro de control', dashboard: 'Centro de control', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', documentos: 'Documentos y gastos', tecnico: 'Banco técnico' };
+const technicalDashboardTitle = document.querySelector('#view-dashboard h1');
+if (technicalDashboardTitle) technicalDashboardTitle.textContent = 'Telemetría y uso';
+const technicalDashboardEyebrow = document.querySelector('#view-dashboard .eyebrow');
+if (technicalDashboardEyebrow) technicalDashboardEyebrow.textContent = 'Datos técnicos';
+const technicalDashboardSubtitle = document.querySelector('#view-dashboard .subtitle');
+if (technicalDashboardSubtitle) technicalDashboardSubtitle.textContent = 'Horas, kilómetros, gastos y próximos trabajos de tu KTM.';
+const controlSubtitle = document.querySelector('#view-hoy .page-heading .subtitle');
+if (controlSubtitle) controlSubtitle.textContent = 'Estado, uso y mantenimiento de tu KTM en una sola vista.';
 const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908 };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
@@ -14,12 +22,13 @@ function bikeStorageKey(name) { return `${name}:${activeBikeId}`; }
 function saveEvents() { localStorage.setItem(bikeStorageKey('motoEvents'), JSON.stringify(events)); }
 
 function showView(view) {
+  const controlView = view === 'hoy' || view === 'dashboard';
   if (view === 'vida' && typeof refreshMaintenanceLifeEvents === 'function') {
     try { refreshMaintenanceLifeEvents(); } catch (error) { console.error('No se pudo actualizar el Libro de vida.', error); }
   }
-  pages.forEach(page => page.classList.toggle('hidden', page.id !== `view-${view}`));
-  document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === view));
-  breadcrumb.textContent = labels[view] || 'Hoy';
+  pages.forEach(page => page.classList.toggle('hidden', controlView ? !['view-hoy', 'view-dashboard'].includes(page.id) : page.id !== `view-${view}`));
+  document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === (controlView ? 'hoy' : view)));
+  breadcrumb.textContent = labels[view] || 'Centro de control';
   sidebar.classList.remove('open');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -1160,4 +1169,5 @@ document.getElementById('backupFile').addEventListener('change', async event => 
 });
 const returnBikeView = sessionStorage.getItem('motoReturnView');
 if (returnBikeView && labels[returnBikeView]) showView(returnBikeView);
+else showView('hoy');
 sessionStorage.removeItem('motoReturnView');

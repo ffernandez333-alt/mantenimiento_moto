@@ -42,4 +42,4 @@ Se pueden crear y modificar archivos locales, preparar pruebas y dejar la aplica
 
 ## Definición de completado
 
-La primera fase se considera completada cuando la navegación, el Dashboard, la página Hoy, las tareas y el registro de eventos funcionan en navegador; la interfaz se adapta razonablemente a móvil y escritorio; y el proyecto incluye instrucciones claras para continuar con persistencia, autenticación, documentos y despliegue.
+La primera fase se considera completada cuando la navegación, el Centro de control unificado, las tareas y el registro de eventos funcionan en navegador; la interfaz se adapta razonablemente a móvil y escritorio; y el proyecto incluye instrucciones claras para continuar con persistencia, autenticación, documentos y despliegue.

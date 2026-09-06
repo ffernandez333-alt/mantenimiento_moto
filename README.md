@@ -6,8 +6,7 @@ Aplicación web responsive para gestionar el libro de vida y el mantenimiento de
 
 La primera versión es un frontend estático funcional. Incluye:
 
-- Página Hoy con avisos, tareas y actividad reciente.
-- Dashboard con horas reales, kilómetros, gastos y próximos trabajos.
+- Centro de control unificado con avisos, tareas, actividad reciente, horas reales, kilómetros, gastos y próximos trabajos.
 - Libro de vida con línea temporal y formulario para registrar eventos.
 - Plan de mantenimiento basado en la tabla KTM: intervalos iniciales, deportivos, 20, 40 y 80 horas, y revisiones anuales/cuatrienales.
 - Botón para actualizar el plan de cada moto mediante un PDF de mantenimiento periódico.
@@ -18,7 +17,7 @@ La primera versión es un frontend estático funcional. Incluye:
 - Los eventos y cada tarea de mantenimiento admiten archivos, fotos y vídeos, incluida la captura desde la cámara del dispositivo.
 - Selector de motos con botón «Añadir moto»; cada moto mantiene separados su ficha, historial y mantenimientos.
 - Identificación de la moto seleccionada en cada vista y en modo taller, con nombre, año y matrícula o ID. «Mis motos» muestra una ficha separada por moto y permite seleccionarla. Al cambiar de moto se conserva la vista actual.
-- La vista Hoy se actualiza al cambiar de moto y muestra sus datos, tareas y actividad reciente sin mezclar información.
+- El Centro de control se actualiza al cambiar de moto y muestra sus datos, tareas y actividad reciente sin mezclar información.
 - Exportación de un informe PDF con la ficha de la moto, gráfico de horas reales frente al tiempo, marcas de pistón e historial de mantenimientos por horas y kilómetros reales.
 - Componentes con estado y vida estimada.
 - Documentos y gastos.
