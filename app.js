@@ -14,7 +14,9 @@ function bikeStorageKey(name) { return `${name}:${activeBikeId}`; }
 function saveEvents() { localStorage.setItem(bikeStorageKey('motoEvents'), JSON.stringify(events)); }
 
 function showView(view) {
-  if (view === 'vida' && typeof refreshMaintenanceLifeEvents === 'function') refreshMaintenanceLifeEvents();
+  if (view === 'vida' && typeof refreshMaintenanceLifeEvents === 'function') {
+    try { refreshMaintenanceLifeEvents(); } catch (error) { console.error('No se pudo actualizar el Libro de vida.', error); }
+  }
   pages.forEach(page => page.classList.toggle('hidden', page.id !== `view-${view}`));
   document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === view));
   breadcrumb.textContent = labels[view] || 'Hoy';
@@ -88,6 +90,17 @@ function openModal() {
   document.getElementById('eventDescription').focus();
 }
 function closeModal() { modal.classList.add('hidden'); }
+function openDeleteConfirmation(title, onConfirm) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `<section class="modal confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteDialogTitle"><h2 id="deleteDialogTitle">Eliminar evento</h2><p>¿Quieres eliminar “${safeText(title)}” del libro de vida? Esta acción también quitará su ficha de mantenimiento si la tiene.</p><div class="modal-actions"><button type="button" class="quiet-button" data-delete-cancel>Cancelar</button><button type="button" class="primary-button danger-button" data-delete-confirm>Eliminar</button></div></section>`;
+  const close = () => backdrop.remove();
+  backdrop.querySelector('[data-delete-cancel]').addEventListener('click', close);
+  backdrop.querySelector('[data-delete-confirm]').addEventListener('click', () => { close(); onConfirm(); });
+  backdrop.addEventListener('click', event => { if (event.target === backdrop) close(); });
+  document.body.appendChild(backdrop);
+  backdrop.querySelector('[data-delete-cancel]').focus();
+}
 ['addEvent', 'addEventDash', 'addEventVida', 'addEventMaint'].forEach(id => document.getElementById(id)?.addEventListener('click', openModal));
 const maintenanceEventButton = document.getElementById('addEventMaint');
 if (maintenanceEventButton) maintenanceEventButton.innerHTML = '<span>＋</span> Registrar evento';
@@ -198,13 +211,12 @@ function renderTimeline() {
   const timeline = document.getElementById('timeline');
   if (!timeline) return;
   const orderedEvents = events.map((item, index) => ({ item, index })).filter(({ item }) => (filterType === 'all' || item.type === filterType) && (filterYear === 'all' || String(item.dateISO || '').startsWith(filterYear))).sort((a, b) => { const result = String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')); return sortDirection === 'desc' ? -result : result; });
-  timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + orderedEvents.map(({ item, index }) => `<div class="timeline-event"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${eventTitle(item)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes ? `<p>${safeText(item.notes)}</p>` : ''}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button></div></div>`).join('');
+  timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + orderedEvents.map(({ item, index }) => `<div class="timeline-event"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${eventTitle(item)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes ? `<p>${safeText(item.notes)}</p>` : ''}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button><button class="event-delete" data-event-index="${index}" aria-label="Eliminar evento" title="Eliminar evento">🗑</button></div></div>`).join('');
   timeline.querySelectorAll('.timeline-event').forEach((node, timelineIndex) => {
     const item = orderedEvents[timelineIndex]?.item;
     if (!item?.maintenanceEventId) return;
     const main = node.querySelector('.activity-main');
     const card = node.querySelector('.timeline-card');
-    node.querySelector('.event-edit')?.remove();
     if (item.maintenanceStatus === 'in_progress') {
       const status = document.createElement('span');
       status.className = 'maintenance-status in-progress';
@@ -235,6 +247,7 @@ function renderTimeline() {
     openButton.className = 'maintenance-open-event';
     openButton.type = 'button';
     openButton.dataset.maintenanceInterval = item.maintenanceInterval || '';
+    openButton.dataset.eventIndex = orderedEvents[timelineIndex].index;
     openButton.textContent = item.maintenanceStatus === 'in_progress' ? 'Continuar mantenimiento' : 'Abrir mantenimiento';
     card?.appendChild(openButton);
   });
@@ -328,6 +341,32 @@ yearSelect.addEventListener('change', () => { filterYear = yearSelect.value; ren
 document.querySelector('.filters')?.prepend(yearSelect);
 
 document.getElementById('timeline').addEventListener('click', event => {
+  const deleteButton = event.target.closest('.event-delete');
+  if (deleteButton) {
+    const index = Number(deleteButton.dataset.eventIndex);
+    const item = events[index];
+    if (!item) return;
+    const title = item.description || item.type || 'este evento';
+    openDeleteConfirmation(title, () => {
+      if (item.maintenanceInterval) {
+        const session = readMaintenanceSession(item.maintenanceInterval);
+        const ids = new Set([item.maintenanceEventId, session?.eventId].filter(Boolean));
+        events = events.filter(candidate => !ids.has(candidate.maintenanceEventId));
+        localStorage.removeItem(maintenanceSessionKey(item.maintenanceInterval));
+        localStorage.removeItem(checklistStateKey(item.maintenanceInterval));
+        if (localStorage.getItem(`motoMaintenanceChecklistInterval:${maintenancePlanKey()}`) === item.maintenanceInterval) localStorage.removeItem(`motoMaintenanceChecklistInterval:${maintenancePlanKey()}`);
+      } else {
+        events.splice(index, 1);
+      }
+      saveEvents();
+      renderTimeline();
+      renderUsageChart();
+      renderMaintenanceChecklist();
+      updateMaintenanceEntryButtons();
+      updateBikeView();
+    });
+    return;
+  }
   const attachmentButton = event.target.closest('.event-attachment-open');
   if (attachmentButton) {
     const editButton = document.querySelector(`#timeline .event-edit[data-event-index="${attachmentButton.dataset.eventIndex}"]`);
@@ -336,6 +375,19 @@ document.getElementById('timeline').addEventListener('click', event => {
   }
   const maintenanceButton = event.target.closest('.maintenance-open-event');
   if (maintenanceButton) {
+    const item = events[Number(maintenanceButton.dataset.eventIndex)];
+    const currentSession = readMaintenanceSession(item.maintenanceInterval);
+    if (item.maintenanceEventId !== (currentSession?.eventId || maintenanceEventId(item.maintenanceInterval))) {
+      const detail = document.createElement('div');
+      detail.className = 'modal-backdrop';
+      detail.innerHTML = `<section class="modal" role="dialog" aria-modal="true" aria-label="Revisión guardada"><h2>${safeText(item.description)}</h2><p>${safeText(item.date)} · ${safeText(eventReadings(item))}</p><p>${safeText(item.notes || '')}</p>${attachmentMarkup(item.attachments || [])}<div>${(item.maintenanceTaskSnapshot || []).map(task => `<p>${task.done ? '✓ Hecha' : task.na ? 'No aplica' : 'Pendiente'} · ${safeText(task.task)}${task.note ? ` — ${safeText(task.note)}` : ''}</p>`).join('')}</div><button type="button" class="primary-button">Cerrar</button></section>`;
+      const close = () => { detail.remove(); maintenanceButton.focus(); };
+      detail.querySelector('button').addEventListener('click', close);
+      detail.addEventListener('click', click => { if (click.target === detail) close(); });
+      detail.addEventListener('keydown', key => { if (key.key === 'Escape') close(); });
+      document.body.appendChild(detail); detail.querySelector('button').focus();
+      return;
+    }
     localStorage.setItem(`motoMaintenanceChecklistInterval:${maintenancePlanKey()}`, maintenanceButton.dataset.maintenanceInterval);
     maintenanceReturnView = 'vida';
     workshopOpen = true;
@@ -406,33 +458,64 @@ document.getElementById('eventForm').addEventListener('submit', async event => {
 const bikeModal = document.getElementById('bikeModal');
 const bikeData = { ...bikeDefaults, ...(bikeProfiles.find(profile => profile.id === activeBikeId) || {}) };
 const defaultBikePhoto = 'assets/ktm-250-exc-tpi-2021.png';
+function profilePhoto(profile) {
+  return profile.photo || (profile.brand === 'KTM' && profile.model === bikeDefaults.model ? defaultBikePhoto : 'assets/moto-sin-foto.svg');
+}
+function maintenanceSchedule(label) { return MaintenanceSchedule.calculate(events, label, bikeData.realHours, todayISO()); }
+function scheduleText(schedule) {
+  const format = value => Number(value).toLocaleString('es-ES', { maximumFractionDigits: 3 });
+  if (schedule.status === 'not_hourly') return 'Este intervalo no se calcula por horas.';
+  if (schedule.status === 'no_history') return 'Sin revisión válida de referencia. Registra una revisión completada con fecha y horas reales.';
+  const basis = `Última válida: ${format(schedule.base)} h · ${schedule.last.dateISO}. Próxima: ${format(schedule.due)} h reales.`;
+  if (schedule.status === 'inconsistent') return `${basis} Revisa las horas actuales: son inferiores a las de la revisión o no son válidas.`;
+  if (schedule.status === 'overdue') return `${basis} Retraso de ${format(-schedule.remaining)} h: supera el margen del 25 % (${format(schedule.tolerance)} h).`;
+  if (schedule.status === 'within_margin') return `${basis} Retraso de ${format(-schedule.remaining)} h, dentro del margen del 25 % (${format(schedule.tolerance)} h).`;
+  if (schedule.status === 'due') return `${basis} Toca ahora.`;
+  return `${basis} Faltan ${format(schedule.remaining)} h.`;
+}
+function nextMaintenanceSchedule() {
+  const schedules = ['Cada 20 horas', 'Cada 40 horas'].map(maintenanceSchedule);
+  return schedules.find(schedule => schedule.status === 'inconsistent') || schedules.filter(schedule => schedule.remaining != null).sort((a, b) => a.due - b.due)[0] || schedules[0];
+}
+function markSchedule(element, schedule) {
+  element.dataset.scheduleStatus = schedule.status;
+  let badge = element.querySelector('.schedule-badge');
+  if (!badge) { badge = document.createElement('div'); badge.className = 'schedule-badge'; element.appendChild(badge); }
+  badge.textContent = ({ overdue: '⚠ Margen del 25 % superado', within_margin: '⚠ Revisión pendiente · dentro del margen del 25 %', due: '⚠ Revisión pendiente · toca ahora', inconsistent: '⚠ Revisar las horas registradas', no_history: 'Sin revisión válida de referencia' })[schedule.status] || '';
+  badge.hidden = !badge.textContent;
+}
 function renderTodayView() {
   const view = document.getElementById('view-hoy');
   if (!view) return;
   const currentHours = Math.round(Number(bikeData.realHours));
-  const nextMaintenance = (Math.floor(currentHours / 20) + 1) * 20;
+  const nextMaintenance = nextMaintenanceSchedule();
   const latestEvents = [...events].sort((a, b) => String(b.dateISO || '').localeCompare(String(a.dateISO || ''))).slice(0, 3);
   view.querySelector('.page-heading .subtitle').textContent = `Esto es lo que necesita tu ${bikeData.brand} hoy.`;
   view.querySelector('.hero-card h2').textContent = `${bikeData.brand} ${bikeData.model}`;
   view.querySelector('.hero-card p').textContent = latestEvents[0] ? `Último registro: ${latestEvents[0].date}` : 'Todavía no hay registros para esta moto.';
   const firstTask = view.querySelector('#taskGrid .task-card');
   if (firstTask) {
-    firstTask.querySelector('.task-due').textContent = `En ${Math.max(0, nextMaintenance - currentHours)} h`;
-    firstTask.querySelector('h3').textContent = `Revisión de ${nextMaintenance} horas`;
-    firstTask.querySelector('p').textContent = `Mantenimiento pendiente al alcanzar las ${nextMaintenance} horas reales.`;
+    firstTask.querySelector('.task-due').textContent = nextMaintenance.status === 'overdue' ? 'Fuera de margen' : nextMaintenance.status === 'within_margin' ? 'Dentro del margen' : nextMaintenance.status === 'due' ? 'Toca ahora' : nextMaintenance.status === 'upcoming' ? `En ${nextMaintenance.remaining.toLocaleString('es-ES')} h` : 'Revisar referencia';
+    firstTask.querySelector('h3').textContent = `Revisión · ${nextMaintenance.label}`;
+    firstTask.querySelector('p').textContent = scheduleText(nextMaintenance);
+    // A dashboard checkbox is not evidence of a completed workshop checklist.
+    firstTask.querySelector('.check-row')?.remove();
+    markSchedule(firstTask.querySelector('.task-content'), nextMaintenance);
   }
   const activityCard = view.querySelector('.activity-card');
   if (activityCard) activityCard.innerHTML = latestEvents.length ? latestEvents.map(item => `<div class="activity-item"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${eventTitle(item)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span></div><strong class="activity-cost">${safeText(item.cost || '—')}</strong></div>`).join('') : '<div class="empty-state">Todavía no hay actividad registrada para esta moto.</div>';
 }
 function updateBikeView() {
+  renderBikeIdentity();
   document.getElementById('bikeName').textContent = `${bikeData.brand} ${bikeData.model}`;
-  document.getElementById('bikeSubtitle').textContent = `Enduro · ${bikeData.year} · 2 tiempos`;
+  document.getElementById('bikeSubtitle').textContent = `${bikeData.year} · ${bikeData.plate || bikeData.id}`;
   document.getElementById('bikeBrand').textContent = bikeData.brand;
   document.getElementById('bikeModel').textContent = bikeData.model;
   document.getElementById('bikeYear').textContent = bikeData.year;
   document.getElementById('bikePlate').textContent = bikeData.plate || 'Sin identificar';
-  document.getElementById('bikePhoto').src = bikeData.photo || defaultBikePhoto;
-  document.getElementById('heroBikePhoto').src = bikeData.photo || defaultBikePhoto;
+  document.getElementById('bikePhoto').src = profilePhoto(bikeData);
+  document.getElementById('heroBikePhoto').src = profilePhoto(bikeData);
+  document.getElementById('heroBikePhoto').alt = `${bikeData.brand} ${bikeData.model}`;
   document.getElementById('realHours').textContent = `${Math.round(Number(bikeData.realHours)).toLocaleString('es-ES')} h`;
   document.getElementById('markerHours').textContent = `${Math.round(Number(bikeData.markerHours)).toLocaleString('es-ES')} h`;
   document.getElementById('realKm').textContent = `${Number(bikeData.realKm).toLocaleString('es-ES')} km`;
@@ -456,25 +539,119 @@ function updateBikeView() {
     }
     if (dashboardCards[2]) {
       const currentHours = Math.round(Number(bikeData.realHours));
-      const nextQuick = (Math.floor(currentHours / 20) + 1) * 20;
-      dashboardCards[2].querySelector('strong').innerHTML = `${nextQuick} <small>h</small>`;
-      dashboardCards[2].querySelector('em').textContent = `Faltan ${nextQuick - currentHours} horas de uso`;
+      const next = nextMaintenanceSchedule();
+      dashboardCards[2].querySelector('strong').textContent = next.due != null ? `${next.due.toLocaleString('es-ES')} h` : 'Sin referencia';
+      dashboardCards[2].querySelector('em').textContent = `${next.label}. ${scheduleText(next)}`;
+      markSchedule(dashboardCards[2], next);
     }
   }
   document.querySelector('#view-dashboard .page-heading .subtitle').textContent = `Una lectura rápida del estado y uso de tu ${bikeData.brand} ${bikeData.model}.`;
   const intervals = document.querySelectorAll('#view-mantenimiento .interval-card');
   if (intervals.length >= 2) {
     const currentHours = Math.round(Number(bikeData.realHours));
-    const nextQuick = (Math.floor(currentHours / 20) + 1) * 20;
-    const nextExtended = (Math.floor(nextQuick / 40) + 1) * 40;
+    const quick = maintenanceSchedule('Cada 20 horas');
+    const extended = maintenanceSchedule('Cada 40 horas');
     intervals[0].querySelector('h2').textContent = 'Revisión de 20 horas';
-    intervals[0].querySelector('strong').textContent = `${nextQuick} h`;
-    intervals[0].querySelector('p').textContent = `Usar el intervalo de 20 horas · faltan ${nextQuick - currentHours} horas`;
+    intervals[0].querySelector('strong').textContent = quick.due != null ? `${quick.due.toLocaleString('es-ES')} h` : 'Sin referencia';
+    intervals[0].querySelector('p').textContent = scheduleText(quick);
     intervals[1].querySelector('h2').textContent = 'Revisión de 40 horas';
-    intervals[1].querySelector('strong').textContent = `${nextExtended} h`;
-    intervals[1].querySelector('p').textContent = `Usar el intervalo de 40 horas · faltan ${nextExtended - currentHours} horas`;
+    intervals[1].querySelector('strong').textContent = extended.due != null ? `${extended.due.toLocaleString('es-ES')} h` : 'Sin referencia';
+    intervals[1].querySelector('p').textContent = scheduleText(extended);
+    markSchedule(intervals[0], quick);
+    markSchedule(intervals[1], extended);
+    [quick, extended].forEach((schedule, index) => {
+      intervals[index].querySelector('.interval-foot').textContent = `Margen de planificación: ${schedule.interval * 0.25} h (25 %). Aviso informativo, sin bloquear salidas.`;
+      intervals[index].querySelector('.interval-label').textContent = schedule.label;
+      const progress = intervals[index].querySelector('.progress-line');
+      progress.hidden = schedule.remaining == null;
+      progress.querySelector('i').style.width = `${schedule.remaining == null ? 0 : Math.min(100, Math.max(0, (1 - schedule.remaining / schedule.interval) * 100))}%`;
+    });
+  }
+  const upcomingTask = document.querySelector('#view-dashboard .next-work');
+  if (upcomingTask) {
+    const next = nextMaintenanceSchedule();
+    upcomingTask.querySelector('.work-date strong').textContent = next.due != null ? next.due.toLocaleString('es-ES') : '—';
+    upcomingTask.querySelector('.work-date span').textContent = 'h reales';
+    upcomingTask.querySelector('.work-date + div > strong').textContent = `Revisión · ${next.label}`;
+    upcomingTask.querySelector('p').textContent = scheduleText(next);
+    markSchedule(upcomingTask.querySelector('.work-date + div'), next);
   }
   renderTodayView();
+  renderAllBikeProfiles();
+}
+function selectBike(id) {
+  if (id === activeBikeId || !bikeProfiles.some(profile => profile.id === id)) return;
+  saveBikeProfiles();
+  const currentPage = [...pages].find(page => !page.classList.contains('hidden'));
+  sessionStorage.setItem('motoReturnView', currentPage?.id.replace('view-', '') || 'hoy');
+  localStorage.setItem('activeBikeId', id);
+  window.location.reload();
+}
+function renderBikeIdentity() {
+  const name = `${bikeData.brand} ${bikeData.model}`;
+  const detail = `${bikeData.year} · ${bikeData.plate || bikeData.id}`;
+  document.title = `Mis motos · ${name} · ${bikeData.plate || bikeData.id}`;
+  pages.forEach(page => {
+    if (page.id === 'view-motos') return;
+    let identity = page.querySelector('.selected-bike-context');
+    if (!identity) {
+      identity = document.createElement('div');
+      identity.className = 'selected-bike-context';
+      identity.innerHTML = '<img class="selected-bike-photo" /><div class="selected-bike-details"><small>Moto seleccionada</small><strong></strong><span></span></div><button type="button" class="quiet-button">Cambiar moto</button>';
+      identity.querySelector('button').addEventListener('click', () => showView('motos'));
+      page.querySelector('.page-heading').after(identity);
+    }
+    identity.querySelector('strong').textContent = name;
+    identity.querySelector('span').textContent = detail;
+    identity.querySelector('.selected-bike-photo').src = profilePhoto(bikeData);
+    identity.querySelector('.selected-bike-photo').alt = name;
+  });
+}
+function renderAllBikeProfiles() {
+  const view = document.getElementById('view-motos');
+  const selected = view.querySelector('.bike-profile');
+  selected.classList.add('selected-profile');
+  selected.querySelector('.status-pill').textContent = '✓ Moto seleccionada';
+  selected.querySelector('.profile-id').textContent = `ID · ${activeBikeId}`;
+  selected.querySelector('#bikePhoto').alt = `${bikeData.brand} ${bikeData.model}`;
+  selected.querySelector('.photo-label').textContent = profilePhoto(bikeData).endsWith('moto-sin-foto.svg') ? 'Añade una foto desde Editar ficha' : `${bikeData.brand} ${bikeData.model}`;
+  view.querySelector('.page-heading .subtitle').textContent = `${bikeProfiles.length} ${bikeProfiles.length === 1 ? 'moto guardada' : 'motos guardadas'}. Selecciona una ficha para consultar su actividad y mantenimiento.`;
+  let others = view.querySelector('.other-bike-profiles');
+  if (!others) {
+    others = document.createElement('div');
+    others.className = 'other-bike-profiles';
+    selected.after(others);
+  }
+  others.replaceChildren();
+  bikeProfiles.filter(profile => profile.id !== activeBikeId).forEach(profile => {
+    const card = document.createElement('section');
+    card.className = 'bike-profile';
+    card.innerHTML = '<div class="profile-visual"></div><div class="profile-details"><div class="profile-title"><div><h2></h2><p></p></div><button type="button" class="primary-button">Seleccionar moto</button></div><div class="detail-grid"></div></div>';
+    card.querySelector('h2').textContent = `${profile.brand} ${profile.model}`;
+    card.querySelector('.profile-title p').textContent = `${profile.year} · ${profile.plate || profile.id}`;
+    card.querySelector('button').addEventListener('click', () => selectBike(profile.id));
+    if (profile.photo || (profile.brand === 'KTM' && profile.model === bikeDefaults.model)) {
+      const photo = document.createElement('img');
+      photo.src = profile.photo || defaultBikePhoto;
+      photo.alt = `${profile.brand} ${profile.model}`;
+      card.querySelector('.profile-visual').appendChild(photo);
+    } else {
+      card.querySelector('.profile-visual').textContent = 'Sin foto';
+    }
+    const fields = [['Marca', profile.brand], ['Modelo', profile.model], ['Año', profile.year], ['Matrícula / ID', profile.plate || profile.id], ['Horas reales', `${Number(profile.realHours || 0).toLocaleString('es-ES')} h`], ['Horas del marcador', `${Number(profile.markerHours || 0).toLocaleString('es-ES')} h`], ['Kilómetros reales', `${Number(profile.realKm || 0).toLocaleString('es-ES')} km`], ['Kilómetros del marcador', `${Number(profile.markerKm || 0).toLocaleString('es-ES')} km`]];
+    fields.forEach(([label, value]) => {
+      const field = document.createElement('div');
+      const caption = document.createElement('span');
+      const content = document.createElement('strong');
+      caption.textContent = label;
+      content.textContent = value;
+      field.append(caption, content);
+      card.querySelector('.detail-grid').appendChild(field);
+    });
+    others.appendChild(card);
+  });
+  view.querySelector('.profile-section-heading h2').textContent = `Configuración de mantenimiento · ${bikeData.brand} ${bikeData.model}`;
+  view.querySelector('.profile-section-heading p').textContent = `Moto seleccionada: ${bikeData.plate || activeBikeId}. Intervalos usados para generar avisos.`;
 }
 updateBikeView();
 function saveBikeProfiles() {
@@ -487,8 +664,8 @@ function saveBikeProfiles() {
 function renderBikeSwitcher() {
   const switcher = document.querySelector('.bike-switcher');
   if (!switcher) return;
-  switcher.innerHTML = `<div class="bike-list" aria-label="Mis motos">${bikeProfiles.map(profile => `<button type="button" class="bike-list-item ${profile.id === activeBikeId ? 'active' : ''}" data-bike-id="${safeText(profile.id)}"><img src="${profile.photo || defaultBikePhoto}" alt="" /><span><strong>${safeText(`${profile.brand} ${profile.model}`)}</strong><small>${safeText(`${profile.year}${profile.plate ? ` · ${profile.plate}` : ''}`)}</small></span></button>`).join('')}</div>`;
-  switcher.querySelectorAll('.bike-list-item').forEach(button => button.addEventListener('click', () => { if (button.dataset.bikeId === activeBikeId) return; saveBikeProfiles(); activeBikeId = button.dataset.bikeId; localStorage.setItem('activeBikeId', activeBikeId); window.location.reload(); }));
+  switcher.innerHTML = `<div class="bike-list" aria-label="Mis motos">${bikeProfiles.map(profile => `<button type="button" class="bike-list-item ${profile.id === activeBikeId ? 'active' : ''}" aria-pressed="${profile.id === activeBikeId}" data-bike-id="${safeText(profile.id)}"><img src="${profilePhoto(profile)}" alt="" /><span><strong>${safeText(`${profile.brand} ${profile.model}`)}</strong><small>${safeText(`${profile.year} · ${profile.plate || profile.id}`)}</small></span></button>`).join('')}</div>`;
+  switcher.querySelectorAll('.bike-list-item').forEach(button => button.addEventListener('click', () => selectBike(button.dataset.bikeId)));
 }
 renderBikeSwitcher();
 let creatingBike = false;
@@ -571,8 +748,20 @@ const defaultMaintenancePlan = {
   ]
 };
 function maintenancePlanKey() { return `motoMaintenancePlan:${encodeURIComponent(activeBikeId)}`; }
-function filterMaintenancePlan(plan) { return { ...plan, sections: (plan.sections || []).filter(section => !/^despu[eé]s de [15] hora/i.test(section.label)) }; }
+function isSelectableMaintenanceSection(section) {
+  const label = String(section?.label || '');
+  return !/tareas detectadas|despu[eé]s de\s+(?:10|15|20)\s+horas?|cada\s+10\s+horas|deportiv|competici[oó]n|inicial/i.test(label);
+}
+function filterMaintenancePlan(plan) { return { ...plan, sections: (plan.sections || []).filter(isSelectableMaintenanceSection) }; }
 let maintenancePlan = filterMaintenancePlan(JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null') || defaultMaintenancePlan);
+for (let storageIndex = 0; storageIndex < localStorage.length; storageIndex += 1) {
+  const storageKey = localStorage.key(storageIndex);
+  if (!storageKey?.startsWith(`motoMaintenanceCustomPlan:${maintenancePlanKey()}:`)) continue;
+  try {
+    const custom = JSON.parse(localStorage.getItem(storageKey));
+    if (custom?.sourceLabels?.length && Array.isArray(custom.tasks) && !maintenancePlan.sections.some(section => section.label === custom.label)) maintenancePlan.sections.push(custom);
+  } catch { /* Ignore an obsolete custom plan and keep the base plan usable. */ }
+}
 function renderMaintenancePlan() {
   const page = document.getElementById('view-mantenimiento');
   if (!page) return;
@@ -583,8 +772,48 @@ function renderMaintenancePlan() {
     container.className = 'panel maintenance-plan-panel';
     page.appendChild(container);
   }
-  container.innerHTML = `<div class="card-top"><div><h3>Plan de mantenimiento</h3><p>${safeText(maintenancePlan.source)}</p></div><button class="quiet-button" id="uploadPlanButton">Importar plan PDF/JSON</button></div><div class="plan-grid">${maintenancePlan.sections.map(section => `<article class="plan-card"><span class="interval-label">${safeText(section.kind)}</span><h3>${safeText(section.label)}</h3><ul>${section.tasks.map(task => `<li>${safeText(task)}</li>`).join('')}</ul></article>`).join('')}</div><p class="plan-status" id="planStatus">El plan se guarda solo para esta moto y este navegador.</p>`;
+  const visibleSections = maintenancePlan.sections.filter(section => !section.sourceLabels && isSelectableMaintenanceSection(section));
+  container.innerHTML = `<div class="card-top"><div><h3>Plan de mantenimiento</h3><p>${safeText(maintenancePlan.source)}</p></div><button class="quiet-button" id="uploadPlanButton">Importar plan PDF/JSON</button></div><div class="plan-grid">${visibleSections.map(section => `<article class="plan-card"><span class="interval-label">${safeText(section.kind)}</span><h3>${safeText(section.label)}</h3><ul>${section.tasks.map(task => `<li>${safeText(task)}</li>`).join('')}</ul></article>`).join('')}</div><p class="plan-status" id="planStatus">El plan se guarda solo para esta moto y este navegador.</p>`;
   document.getElementById('uploadPlanButton').addEventListener('click', () => document.getElementById('maintenancePlanFile').click());
+}
+function maintenanceCustomPlanKey(label) { return `motoMaintenanceCustomPlan:${maintenancePlanKey()}:${encodeURIComponent(label)}`; }
+function maintenanceSectionsForSelection() { return maintenancePlan.sections.filter(section => !section.sourceLabels && isSelectableMaintenanceSection(section)); }
+function maintenanceSectionForLabel(label) {
+  const existing = maintenancePlan.sections.find(section => section.label === label);
+  if (existing) return existing;
+  try { return JSON.parse(localStorage.getItem(maintenanceCustomPlanKey(label)) || 'null'); } catch { return null; }
+}
+function renderMaintenanceLauncher() {
+  const summary = document.querySelector('#view-mantenimiento .maintenance-summary');
+  if (!summary || workshopOpen) return;
+  const sections = maintenanceSectionsForSelection();
+  const activeCombined = maintenancePlan.sections.filter(section => section.sourceLabels && hasMaintenanceProgress(section.label));
+  summary.className = 'maintenance-summary maintenance-launcher';
+  summary.innerHTML = `<div class="maintenance-launch-card"><div class="maintenance-launch-header"><div><span class="interval-label">NUEVA REVISIÓN</span><h2>Iniciar mantenimiento</h2><p>Selecciona uno o varios mantenimientos. Las tareas repetidas se mostrarán una sola vez.</p></div><button type="button" class="primary-button" id="startSelectedMaintenance">Iniciar mantenimiento</button></div><div class="maintenance-selection" role="group" aria-label="Mantenimientos disponibles">${sections.map(section => `<label><input type="checkbox" value="${safeText(section.label)}" /> <span><strong>${safeText(section.label)}</strong><small>${section.tasks.length} tareas · ${safeText(section.kind)}</small></span></label>`).join('')}</div>${activeCombined.length ? `<div class="maintenance-active-list"><strong>Revisiones en curso</strong>${activeCombined.map(section => `<button type="button" class="quiet-button active-maintenance-button" data-maintenance-label="${safeText(section.label)}">Continuar: ${safeText(section.label)}</button>`).join('')}</div>` : ''}</div>`;
+  summary.querySelectorAll('.active-maintenance-button').forEach(button => button.addEventListener('click', () => {
+    localStorage.setItem(`motoMaintenanceChecklistInterval:${maintenancePlanKey()}`, button.dataset.maintenanceLabel);
+    maintenanceSession(button.dataset.maintenanceLabel);
+    workshopOpen = true;
+    document.body.classList.add('workshop-mode');
+    renderMaintenanceChecklist();
+  }));
+  summary.querySelector('#startSelectedMaintenance').addEventListener('click', () => {
+    const labels = [...summary.querySelectorAll('input:checked')].map(input => input.value);
+    if (!labels.length) { window.alert('Selecciona al menos un mantenimiento.'); return; }
+    const selected = labels.map(maintenanceSectionForLabel).filter(Boolean);
+    const seen = new Set();
+    const tasks = selected.flatMap(section => section.tasks).filter(task => { const normalized = String(task).trim().toLocaleLowerCase('es-ES'); if (seen.has(normalized)) return false; seen.add(normalized); return true; });
+    const combinedLabel = labels.join(' + ');
+    const combined = { label: combinedLabel, kind: 'Selección combinada', tasks, sourceLabels: labels };
+    localStorage.setItem(maintenanceCustomPlanKey(combinedLabel), JSON.stringify(combined));
+    if (!maintenancePlan.sections.some(section => section.label === combinedLabel)) maintenancePlan.sections.push(combined);
+    localStorage.setItem(`motoMaintenanceChecklistInterval:${maintenancePlanKey()}`, combinedLabel);
+    maintenanceSession(combinedLabel);
+    syncMaintenanceProgressEvent(combinedLabel);
+    workshopOpen = true;
+    document.body.classList.add('workshop-mode');
+    renderMaintenanceChecklist();
+  });
 }
 const maintenancePlanFile = document.createElement('input');
 maintenancePlanFile.id = 'maintenancePlanFile';
@@ -655,6 +884,27 @@ function hasMaintenanceProgress(sectionLabel) { const state = readChecklistState
 function maintenanceIsComplete(sectionLabel) { const section = maintenancePlan?.sections?.find(item => item.label === sectionLabel); if (!section) return false; const state = readChecklistState(sectionLabel); return section.tasks.length > 0 && section.tasks.every((_, index) => state[index]?.done || state[index]?.na); }
 function maintenanceProgress(sectionLabel) { const section = maintenancePlan?.sections?.find(item => item.label === sectionLabel); if (!section) return { completed: 0, total: 0, percent: 0 }; const state = readChecklistState(sectionLabel); const completed = section.tasks.filter((_, index) => state[index]?.done || state[index]?.na).length; return { completed, total: section.tasks.length, percent: section.tasks.length ? Math.round((completed / section.tasks.length) * 100) : 0 }; }
 function maintenanceEventId(sectionLabel) { return `maintenance-${maintenancePlanKey()}-${encodeURIComponent(sectionLabel)}`; }
+function maintenanceSession(sectionLabel) {
+  const stored = readMaintenanceSession(sectionLabel);
+  const session = stored || { date: todayISO(), markerHours: readingNumber(bikeData.markerHours), markerKm: readingNumber(bikeData.markerKm), eventId: `${maintenanceEventId(sectionLabel)}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
+  const previous = events.find(item => item.maintenanceEventId === (session.eventId || maintenanceEventId(sectionLabel)));
+  // Freeze real readings once. Existing event readings take precedence during migration.
+  if (session.realHours == null) session.realHours = previous?.realHours ?? (Number(bikeData.realHours) - Number(bikeData.markerHours) + Number(session.markerHours));
+  if (session.realKm == null) session.realKm = previous?.realKm ?? (Number(bikeData.realKm) - Number(bikeData.markerKm) + Number(session.markerKm));
+  localStorage.setItem(maintenanceSessionKey(sectionLabel), JSON.stringify(session));
+  return session;
+}
+function estimateRealReading(markerValue, sessionMarker, sessionReal, currentMarker, currentReal) {
+  const marker = MaintenanceSchedule.hours(markerValue);
+  const baseMarker = MaintenanceSchedule.hours(sessionMarker);
+  const baseReal = MaintenanceSchedule.hours(sessionReal);
+  const fallbackMarker = MaintenanceSchedule.hours(currentMarker);
+  const fallbackReal = MaintenanceSchedule.hours(currentReal);
+  if (marker === null) return null;
+  if (baseMarker !== null && baseReal !== null) return Math.max(0, Math.round((baseReal + marker - baseMarker) * 100) / 100);
+  if (fallbackMarker !== null && fallbackReal !== null) return Math.max(0, Math.round((fallbackReal + marker - fallbackMarker) * 100) / 100);
+  return marker;
+}
 function refreshMaintenanceLifeEvents() {
   if (!maintenancePlan?.sections) return;
   maintenancePlan.sections.filter(section => !/tareas detectadas/i.test(section.label)).forEach(section => {
@@ -666,11 +916,11 @@ function refreshMaintenanceLifeEvents() {
 function syncMaintenanceProgressEvent(sectionLabel) {
   const section = maintenancePlan?.sections?.find(item => item.label === sectionLabel);
   if (!section || !hasMaintenanceProgress(sectionLabel)) return;
-  const session = readMaintenanceSession(sectionLabel) || { date: todayISO(), markerHours: Math.round(readingNumber(bikeData.markerHours)), markerKm: Math.round(readingNumber(bikeData.markerKm)) };
+  const session = maintenanceSession(sectionLabel);
   const progress = maintenanceProgress(sectionLabel);
   const taskAttachments = section.tasks.flatMap((_, index) => readChecklistState(sectionLabel)[index]?.attachments || []);
   const id = session.eventId || maintenanceEventId(sectionLabel);
-  const event = { maintenanceEventId: id, maintenanceInterval: sectionLabel, maintenanceStatus: 'in_progress', maintenanceCompleted: progress.completed, maintenanceTotal: progress.total, maintenancePercent: progress.percent, attachments: taskAttachments, type: 'Mantenimiento', description: `Revisión · ${sectionLabel} (en curso)`, date: formatDate(session.date || todayISO()), dateISO: session.date || todayISO(), hours: Math.round(readingNumber(session.markerHours)), km: Math.round(readingNumber(session.markerKm)), realHours: Math.round(Number(bikeData.realHours)), realKm: Math.round(Number(bikeData.realKm)), notes: `Mantenimiento en curso: ${progress.completed} de ${progress.total} tareas resueltas.` };
+  const event = { maintenanceEventId: id, maintenanceInterval: sectionLabel, maintenanceStatus: maintenanceIsComplete(sectionLabel) ? 'completed' : 'in_progress', maintenanceCompleted: progress.completed, maintenanceTotal: progress.total, maintenancePercent: progress.percent, attachments: taskAttachments, type: 'Mantenimiento', description: `Revisión · ${sectionLabel}${maintenanceIsComplete(sectionLabel) ? '' : ' (en curso)'}`, date: formatDate(session.date || todayISO()), dateISO: session.date || todayISO(), hours: readingNumber(session.markerHours), km: readingNumber(session.markerKm), realHours: readingNumber(session.realHours), realKm: readingNumber(session.realKm), notes: `Mantenimiento: ${progress.completed} de ${progress.total} tareas resueltas.` };
   const existingIndex = events.findIndex(item => item.maintenanceEventId === id);
   if (existingIndex >= 0) events[existingIndex] = { ...events[existingIndex], ...event };
   else events.unshift(event);
@@ -679,23 +929,16 @@ function syncMaintenanceProgressEvent(sectionLabel) {
   saveEvents();
   renderTimeline();
   renderUsageChart();
+  updateBikeView();
 }
 function syncCompletedMaintenanceEvent(sectionLabel) {
   if (!maintenanceIsComplete(sectionLabel)) {
     syncMaintenanceProgressEvent(sectionLabel);
-    const generatedEventId = maintenanceEventId(sectionLabel);
-    const remainingEvents = events.filter(item => item.maintenanceEventId !== generatedEventId);
-    if (remainingEvents.length !== events.length) {
-      events = remainingEvents;
-      saveEvents();
-      renderTimeline();
-      renderUsageChart();
-    }
     return;
   }
   const section = maintenancePlan?.sections?.find(item => item.label === sectionLabel);
   if (!section) return;
-  const session = readMaintenanceSession(sectionLabel) || { date: todayISO(), markerHours: Math.round(readingNumber(bikeData.markerHours)), markerKm: Math.round(readingNumber(bikeData.markerKm)) };
+  const session = maintenanceSession(sectionLabel);
   const state = readChecklistState(sectionLabel);
   const progress = maintenanceProgress(sectionLabel);
   const taskAttachments = section.tasks.flatMap((_, index) => state[index]?.attachments || []);
@@ -709,6 +952,7 @@ function syncCompletedMaintenanceEvent(sectionLabel) {
     maintenanceCompleted: progress.completed,
     maintenanceTotal: progress.total,
     maintenancePercent: progress.percent,
+    maintenanceTaskSnapshot: section.tasks.map((task, index) => ({ task, done: Boolean(state[index]?.done), na: Boolean(state[index]?.na), note: state[index]?.note || '' })),
     attachments: taskAttachments,
     type: 'Mantenimiento',
     description: `Revisión · ${sectionLabel}`,
@@ -716,8 +960,8 @@ function syncCompletedMaintenanceEvent(sectionLabel) {
     dateISO: completedDate,
     hours: Math.round(readingNumber(session.markerHours)),
     km: Math.round(readingNumber(session.markerKm)),
-    realHours: Math.round(Number(bikeData.realHours)),
-    realKm: Math.round(Number(bikeData.realKm)),
+    realHours: readingNumber(session.realHours),
+    realKm: readingNumber(session.realKm),
     notes: [`Mantenimiento completado (${section.tasks.length} tareas).`, taskNotes].filter(Boolean).join(' ')
   };
   const existingIndex = events.findIndex(item => item.maintenanceEventId === id);
@@ -730,28 +974,78 @@ function syncCompletedMaintenanceEvent(sectionLabel) {
   saveEvents();
   renderTimeline();
   renderUsageChart();
+  updateBikeView();
 }
-function closeWorkshop(sectionLabel) { const progress = maintenanceProgress(sectionLabel); if (progress.total > 0 && progress.completed === progress.total) syncCompletedMaintenanceEvent(sectionLabel); workshopOpen = false; document.body.classList.remove('workshop-mode'); renderMaintenanceChecklist(); updateMaintenanceEntryButtons(); const returnView = maintenanceReturnView; maintenanceReturnView = null; if (returnView) showView(returnView); }
+function closeWorkshop(sectionLabel) {
+  const progress = maintenanceProgress(sectionLabel);
+  try {
+    if (progress.total > 0 && progress.completed === progress.total) syncCompletedMaintenanceEvent(sectionLabel);
+    else syncMaintenanceProgressEvent(sectionLabel);
+  } catch (error) {
+    console.error('No se pudo sincronizar el mantenimiento al cerrar el taller.', error);
+  } finally {
+    workshopOpen = false;
+    document.body.classList.remove('workshop-mode');
+    renderMaintenanceChecklist();
+    updateMaintenanceEntryButtons();
+    const returnView = maintenanceReturnView || 'vida';
+    maintenanceReturnView = null;
+    showView(returnView);
+  }
+}
 let workshopOpen = false;
 let maintenanceReturnView = null;
 function renderMaintenanceChecklist() {
   const panel = document.querySelector('#view-mantenimiento .checklist-panel');
   if (!panel || !maintenancePlan) return;
   panel.hidden = !workshopOpen;
-  const availableSections = maintenancePlan.sections.filter(section => !/tareas detectadas/i.test(section.label));
+  const availableSections = maintenancePlan.sections.filter(section => isSelectableMaintenanceSection(section) || section.sourceLabels);
   if (!availableSections.length) return;
   const currentHours = Math.round(Number(bikeData.realHours));
-  const nextQuick = (Math.floor(currentHours / 20) + 1) * 20;
   const savedLabel = localStorage.getItem(`motoMaintenanceChecklistInterval:${maintenancePlanKey()}`);
   const defaultLabel = availableSections.find(section => /cada 20 horas/i.test(section.label))?.label || availableSections[0].label;
   const selectedLabel = availableSections.some(section => section.label === savedLabel) ? savedLabel : defaultLabel;
   const selectedSection = availableSections.find(section => section.label === selectedLabel) || availableSections[0];
+  const selectedSchedule = maintenanceSchedule(selectedSection.label);
   const state = readChecklistState(selectedSection.label);
-  const session = readMaintenanceSession(selectedSection.label) || { date: todayISO(), markerHours: Math.round(readingNumber(bikeData.markerHours)), markerKm: Math.round(readingNumber(bikeData.markerKm)) };
+  const session = workshopOpen ? maintenanceSession(selectedSection.label) : { date: todayISO(), markerHours: bikeData.markerHours, markerKm: bikeData.markerKm, realHours: bikeData.realHours, realKm: bikeData.realKm };
   const completed = selectedSection.tasks.filter((_, index) => state[index]?.done || state[index]?.na).length;
   const pendingPrevious = selectedLabel === 'Cada 40 horas' && !maintenanceIsComplete('Cada 20 horas');
   const complete = selectedSection.tasks.length > 0 && completed === selectedSection.tasks.length;
-  panel.innerHTML = `<div class="card-top"><div><h3>Lista de tareas · ${safeText(selectedSection.label)}</h3><p>Próxima referencia: ${nextQuick} h reales. Marca cada tarea o indica si no aplica.</p></div><div class="checklist-actions"><div class="checklist-select"><label for="checklistInterval">Intervalo</label><select id="checklistInterval">${availableSections.map(section => `<option value="${safeText(section.label)}" ${section.label === selectedLabel ? 'selected' : ''}>${safeText(section.label)}</option>`).join('')}</select></div><button class="quiet-button workshop-button" id="workshopModeButton" type="button">Cerrar modo taller</button><button class="quiet-button reset-maintenance-button" id="resetMaintenanceButton" type="button">Resetear mantenimiento</button></div></div>${pendingPrevious ? '<div class="maintenance-warning">La revisión de 20 horas todavía no está terminada. Puedes continuar con esta revisión, pero quedan tareas pendientes.</div>' : ''}${complete ? '<div class="maintenance-complete"><span>✓</span><strong>Mantenimiento realizado</strong><small>Todas las tareas están resueltas. Puedes cerrar la hoja.</small></div>' : ''}<div class="maintenance-session"><strong>Datos de esta revisión</strong><div class="session-fields"><label>Fecha<input id="sessionDate" type="date" value="${safeText(session.date)}" /></label><label>Horas del marcador<input id="sessionHours" type="number" step="1" value="${safeText(session.markerHours)}" /></label><label>Km del marcador<input id="sessionKm" type="number" step="1" value="${safeText(session.markerKm)}" /></label><button class="quiet-button" id="saveSessionButton" type="button">Guardar datos</button></div></div><div class="checklist-progress">${completed} de ${selectedSection.tasks.length} tareas resueltas</div><div id="maintenanceTasks">${selectedSection.tasks.map((task, index) => { const itemState = state[index] || {}; return `<div class="maintenance-task ${itemState.done || itemState.na ? 'done' : ''}" data-task-index="${index}"><div class="task-controls"><label><input type="checkbox" data-task-action="done" ${itemState.done ? 'checked' : ''} /> Hecha</label><label><input type="checkbox" data-task-action="na" ${itemState.na ? 'checked' : ''} /> No aplica</label></div><div><strong>${safeText(task)}</strong><textarea data-task-action="note" rows="2" placeholder="Nota de esta tarea">${safeText(itemState.note || '')}</textarea></div></div>`; }).join('')}</div><div class="workshop-footer"><button class="workshop-button workshop-close-bottom" id="workshopModeButtonBottom" type="button">Cerrar modo taller</button></div>`;
+  panel.innerHTML = `<div class="card-top"><div><h3>Lista de tareas · ${safeText(selectedSection.label)}</h3><p>${safeText(scheduleText(selectedSchedule))} Marca cada tarea o indica si no aplica.</p></div><div class="checklist-actions"><div class="checklist-select"><label for="checklistInterval">Intervalo</label><select id="checklistInterval">${availableSections.map(section => `<option value="${safeText(section.label)}" ${section.label === selectedLabel ? 'selected' : ''}>${safeText(section.label)}</option>`).join('')}</select></div><button class="quiet-button workshop-button" id="workshopModeButton" type="button">Cerrar modo taller</button><button class="quiet-button reset-maintenance-button" id="resetMaintenanceButton" type="button">Resetear mantenimiento</button></div></div>${pendingPrevious ? '<div class="maintenance-warning">La revisión de 20 horas todavía no está terminada. Puedes continuar con esta revisión, pero quedan tareas pendientes.</div>' : ''}${complete ? '<div class="maintenance-complete"><span>✓</span><strong>Mantenimiento realizado</strong><small>Todas las tareas están resueltas. Puedes cerrar la hoja.</small></div>' : ''}<div class="maintenance-session"><strong>Datos de esta revisión</strong><p class="session-help">Al cambiar las lecturas del marcador, las horas y kilómetros reales se calculan automáticamente. Puedes corregirlos.</p><div class="session-fields"><label class="session-date-field">Fecha<input id="sessionDate" type="date" value="${safeText(session.date)}" /></label><div class="reading-group marker-reading"><strong>Marcador</strong><span>Lo que indica el cuadro de la moto</span><label>Horas<input id="sessionHours" type="number" step="1" value="${safeText(session.markerHours)}" /></label><label>Kilómetros<input id="sessionKm" type="number" step="1" value="${safeText(session.markerKm)}" /></label></div><div class="reading-group real-reading"><strong>Uso real acumulado</strong><span>Se calcula automáticamente y se puede editar</span><label>Horas<input id="sessionRealHours" type="number" min="0" step="any" value="${safeText(session.realHours)}" /></label><label>Kilómetros<input id="sessionRealKm" type="number" min="0" step="any" value="${safeText(session.realKm)}" /></label></div><button class="quiet-button" id="saveSessionButton" type="button">Guardar datos</button></div></div><div class="checklist-progress">${completed} de ${selectedSection.tasks.length} tareas resueltas</div><div id="maintenanceTasks">${selectedSection.tasks.map((task, index) => { const itemState = state[index] || {}; return `<div class="maintenance-task ${itemState.done || itemState.na ? 'done' : ''}" data-task-index="${index}"><div class="task-controls"><label><input type="checkbox" data-task-action="done" ${itemState.done ? 'checked' : ''} /> Hecha</label><label><input type="checkbox" data-task-action="na" ${itemState.na ? 'checked' : ''} /> No aplica</label></div><div><strong>${safeText(task)}</strong><textarea data-task-action="note" rows="2" placeholder="Nota de esta tarea">${safeText(itemState.note || '')}</textarea></div></div>`; }).join('')}</div><div class="workshop-footer"><button class="workshop-button workshop-close-bottom" id="workshopModeButtonBottom" type="button">Cerrar modo taller</button></div>`;
+  document.getElementById('saveSessionButton').textContent = 'Guardar marcador y uso real';
+  markSchedule(panel.querySelector('.card-top > div'), selectedSchedule);
+  const realHoursInput = document.getElementById('sessionRealHours');
+  const realKmInput = document.getElementById('sessionRealKm');
+  let manualRealHours = false;
+  let manualRealKm = false;
+  realHoursInput.addEventListener('input', () => { manualRealHours = true; });
+  realKmInput.addEventListener('input', () => { manualRealKm = true; });
+  document.getElementById('sessionHours').addEventListener('input', event => {
+    if (!manualRealHours) {
+      const estimate = estimateRealReading(event.target.value, session.markerHours, session.realHours, bikeData.markerHours, bikeData.realHours);
+      if (estimate !== null) realHoursInput.value = estimate;
+    }
+  });
+  document.getElementById('sessionKm').addEventListener('input', event => {
+    if (!manualRealKm) {
+      const estimate = estimateRealReading(event.target.value, session.markerKm, session.realKm, bikeData.markerKm, bikeData.realKm);
+      if (estimate !== null) realKmInput.value = estimate;
+    }
+  });
+  if (complete) {
+    const nextButton = document.createElement('button');
+    nextButton.type = 'button'; nextButton.className = 'primary-button'; nextButton.textContent = 'Comenzar una nueva revisión';
+    nextButton.addEventListener('click', () => {
+      syncCompletedMaintenanceEvent(selectedSection.label);
+      localStorage.removeItem(maintenanceSessionKey(selectedSection.label));
+      localStorage.removeItem(checklistStateKey(selectedSection.label));
+      maintenanceSession(selectedSection.label);
+      syncMaintenanceProgressEvent(selectedSection.label);
+      renderMaintenanceChecklist(); updateMaintenanceEntryButtons();
+    });
+    panel.querySelector('.maintenance-complete').appendChild(nextButton);
+  }
   const intervalSelect = document.getElementById('checklistInterval');
   panel.querySelectorAll('[data-task-index]').forEach(task => {
     const taskIndex = task.dataset.taskIndex;
@@ -761,20 +1055,29 @@ function renderMaintenanceChecklist() {
     attachmentField.innerHTML = `<div class="attachment-pickers"><label class="attachment-picker">＋ Fichero<input type="file" data-task-attachment="file" accept="${attachmentAccept}" multiple /></label><label class="attachment-picker">◉ Cámara<input type="file" data-task-attachment="camera" accept="image/*,video/*" capture="environment" /></label></div>${attachmentMarkup(taskState.attachments || [], 'task-attachments')}`;
     task.children[1]?.appendChild(attachmentField);
     attachmentField.querySelectorAll('input[data-task-attachment]').forEach(input => input.addEventListener('change', async event => {
-      const nextState = readChecklistState(selectedSection.label);
-      const added = await filesToAttachments(event.target.files);
-      nextState[taskIndex] = { ...(nextState[taskIndex] || {}), attachments: [...(nextState[taskIndex]?.attachments || []), ...added] };
-      localStorage.setItem(checklistStateKey(selectedSection.label), JSON.stringify(nextState));
-      event.target.value = '';
-      syncMaintenanceProgressEvent(selectedSection.label);
-      renderMaintenanceChecklist();
+      try {
+        const nextState = readChecklistState(selectedSection.label);
+        const added = await filesToAttachments(event.target.files);
+        nextState[taskIndex] = { ...(nextState[taskIndex] || {}), attachments: [...(nextState[taskIndex]?.attachments || []), ...added] };
+        localStorage.setItem(checklistStateKey(selectedSection.label), JSON.stringify(nextState));
+        syncMaintenanceProgressEvent(selectedSection.label);
+        renderMaintenanceChecklist();
+      } catch (error) {
+        console.error('No se pudo guardar el archivo de la tarea.', error);
+        window.alert('No se ha podido guardar este archivo. Si ocupa mucho, prueba con una imagen más pequeña.');
+      } finally {
+        event.target.value = '';
+      }
     }));
   });
   intervalSelect.addEventListener('change', () => { localStorage.setItem(`motoMaintenanceChecklistInterval:${maintenancePlanKey()}`, intervalSelect.value); renderMaintenanceChecklist(); });
   document.getElementById('workshopModeButton').addEventListener('click', () => closeWorkshop(selectedSection.label));
   document.getElementById('workshopModeButtonBottom').addEventListener('click', () => closeWorkshop(selectedSection.label));
   document.getElementById('saveSessionButton').addEventListener('click', () => {
-    const sessionData = { date: document.getElementById('sessionDate').value || todayISO(), markerHours: Math.round(Number(document.getElementById('sessionHours').value)), markerKm: Math.round(Number(document.getElementById('sessionKm').value)) };
+    const values = ['sessionHours', 'sessionKm', 'sessionRealHours', 'sessionRealKm'].map(id => MaintenanceSchedule.hours(document.getElementById(id).value));
+    const date = document.getElementById('sessionDate').value;
+    if (values.some(value => value === null) || !date || date > todayISO()) { window.alert('Indica una fecha no futura y lecturas válidas, iguales o mayores que cero.'); return; }
+    const sessionData = { ...maintenanceSession(selectedSection.label), date, markerHours: values[0], markerKm: values[1], realHours: values[2], realKm: values[3] };
     localStorage.setItem(maintenanceSessionKey(selectedSection.label), JSON.stringify(sessionData));
     syncCompletedMaintenanceEvent(selectedSection.label);
     renderMaintenanceChecklist();
@@ -787,6 +1090,7 @@ function renderMaintenanceChecklist() {
     const generatedEventIds = new Set([maintenanceEventId(selectedSection.label), savedSession?.eventId].filter(Boolean));
     events = events.filter(item => !generatedEventIds.has(item.maintenanceEventId));
     saveEvents();
+    updateBikeView();
     renderTimeline();
     renderUsageChart();
     workshopOpen = false;
@@ -811,28 +1115,49 @@ function renderMaintenanceChecklist() {
   }));
 }
 renderMaintenanceChecklist();
-function setupMaintenanceEntryPoints() {
-  const intervals = document.querySelectorAll('#view-mantenimiento .interval-card');
-  intervals.forEach((card, index) => {
-    const label = index === 0 ? 'Cada 20 horas' : 'Cada 40 horas';
-    const button = document.createElement('button');
-    button.className = `primary-button maintenance-start-button ${hasMaintenanceProgress(label) ? 'maintenance-continue' : 'maintenance-start'}`;
-    button.type = 'button';
-    button.textContent = hasMaintenanceProgress(label) ? 'Continuar mantenimiento' : 'Comenzar mantenimiento';
-    button.addEventListener('click', () => {
-      if (index === 1 && !maintenanceIsComplete('Cada 20 horas') && !hasMaintenanceProgress(label)) {
-        const confirmed = window.confirm('La revisión de 20 horas todavía no está al 100 %. ¿Quieres empezar la revisión de 40 horas de todos modos?');
-        if (!confirmed) return;
-      }
-      if (!readMaintenanceSession(label)) localStorage.setItem(maintenanceSessionKey(label), JSON.stringify({ date: todayISO(), markerHours: Math.round(readingNumber(bikeData.markerHours)), markerKm: Math.round(readingNumber(bikeData.markerKm)) }));
-      syncMaintenanceProgressEvent(label);
-      localStorage.setItem(`motoMaintenanceChecklistInterval:${maintenancePlanKey()}`, label);
-      workshopOpen = true;
-      document.body.classList.add('workshop-mode');
-      renderMaintenanceChecklist();
-    });
-    card.appendChild(button);
-  });
-}
-function updateMaintenanceEntryButtons() { document.querySelectorAll('#view-mantenimiento .interval-card').forEach((card, index) => { const label = index === 0 ? 'Cada 20 horas' : 'Cada 40 horas'; const button = card.querySelector('.maintenance-start-button'); const continuing = hasMaintenanceProgress(label); const complete = maintenanceIsComplete(label); if (button) { button.textContent = complete ? 'Editar mantenimiento' : continuing ? 'Continuar mantenimiento' : 'Comenzar mantenimiento'; button.classList.toggle('maintenance-continue', continuing && !complete); button.classList.toggle('maintenance-start', !continuing); button.classList.toggle('maintenance-edit', complete); } card.querySelector('.maintenance-progress')?.remove(); card.querySelector('.maintenance-completed')?.remove(); const progress = maintenanceProgress(label); const progressBox = document.createElement('div'); progressBox.className = 'maintenance-progress'; progressBox.innerHTML = `<div class="maintenance-progress-label"><span>Tareas realizadas</span><strong>${progress.completed}/${progress.total} · ${progress.percent}%</strong></div><div class="maintenance-progress-track"><i style="width:${progress.percent}%"></i></div>`; card.appendChild(progressBox); if (complete) { const completeBadge = document.createElement('span'); completeBadge.className = 'maintenance-completed'; completeBadge.textContent = '✓ Mantenimiento realizado'; card.appendChild(completeBadge); } card.querySelector('.maintenance-warning')?.remove(); if (index === 1 && !maintenanceIsComplete('Cada 20 horas')) { const warning = document.createElement('span'); warning.className = 'maintenance-warning'; warning.textContent = 'La revisión de 20 h sigue pendiente'; card.appendChild(warning); } }); }
+function setupMaintenanceEntryPoints() { renderMaintenanceLauncher(); }
+function updateMaintenanceEntryButtons() { renderMaintenanceLauncher(); }
 setupMaintenanceEntryPoints();
+
+const backupPanel = document.createElement('section');
+backupPanel.className = 'panel backup-panel';
+backupPanel.innerHTML = `<h3>Copia de seguridad</h3><p>Guarda todas tus motos, historiales, planes, revisiones en curso, fotos y archivos adjuntos en un archivo. Puedes recuperarlos en este navegador o llevarlos a otro dispositivo.</p><div class="backup-actions"><button type="button" class="primary-button" id="downloadBackup">Guardar copia</button><button type="button" class="quiet-button" id="restoreBackup">Restaurar copia</button><input type="file" id="backupFile" accept=".json,application/json" hidden /></div><p>Al restaurar se sustituirán los datos de todas las motos. Guarda antes una copia de los datos actuales. El archivo contiene tus datos personales y adjuntos; consérvalo en un lugar privado.</p><p id="backupStatus" role="status" aria-live="polite"></p>`;
+document.getElementById('view-motos').appendChild(backupPanel);
+const backupStatus = document.getElementById('backupStatus');
+document.getElementById('downloadBackup').addEventListener('click', () => {
+  try {
+    saveBikeProfiles();
+    saveEvents();
+    localStorage.setItem('activeBikeId', activeBikeId);
+    const backup = MotoBackup.create(localStorage);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `mis-motos-copia-${todayISO()}-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    backupStatus.textContent = 'Copia preparada. Comprueba que el archivo se ha guardado en tus descargas.';
+  } catch (error) { backupStatus.textContent = `No se ha podido crear la copia. ${error.message}`; }
+});
+document.getElementById('restoreBackup').addEventListener('click', () => document.getElementById('backupFile').click());
+document.getElementById('backupFile').addEventListener('change', async event => {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+  try {
+    const backup = MotoBackup.validate(JSON.parse(await file.text()));
+    const profiles = JSON.parse(backup.data.motoProfiles);
+    const date = new Date(backup.createdAt).toLocaleString('es-ES');
+    if (!window.confirm(`Restaurar copia del ${date}:\n${profiles.map(profile => `${profile.brand} ${profile.model}`).join('\n')}\n\nSe sustituirán los datos de todas las motos de este navegador. ¿Continuar?`)) {
+      backupStatus.textContent = 'Restauración cancelada. Tus datos siguen igual.';
+      return;
+    }
+    MotoBackup.restore(localStorage, backup);
+    window.location.reload();
+  } catch (error) { backupStatus.textContent = `No se ha podido restaurar la copia. ${error instanceof SyntaxError ? 'El archivo no contiene un JSON válido.' : error.message}`; }
+});
+const returnBikeView = sessionStorage.getItem('motoReturnView');
+if (returnBikeView && labels[returnBikeView]) showView(returnBikeView);
+sessionStorage.removeItem('motoReturnView');

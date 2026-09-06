@@ -1,0 +1,16 @@
+# Documentos personales y fuentes de mantenimiento
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.ods
+
+# Archivos temporales y salidas locales
+output/
+tmp/
+*.log
+
+# Datos locales que no deben viajar al repositorio
+.env
+.env.*
