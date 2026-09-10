@@ -4,7 +4,7 @@ const breadcrumb = document.getElementById('breadcrumbCurrent');
 const sidebar = document.getElementById('sidebar');
 
 const labels = { hoy: 'Mis motos', dashboard: 'Mis motos', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', documentos: 'Documentos y gastos', tecnico: 'Banco técnico' };
-const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908 };
+const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908, itvNextDate: '2028-07-08', insuranceExpiryDate: '2026-10-16' };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
 if (!Array.isArray(bikeProfiles) || !bikeProfiles.length) bikeProfiles = [{ id: 'moto-1', ...bikeDefaults, ...(legacyProfile || {}) }];
@@ -666,6 +666,9 @@ function updateBikeView() {
   setText('markerHours', `${Math.round(Number(bikeData.markerHours)).toLocaleString('es-ES')} h`);
   setText('realKm', `${Number(bikeData.realKm).toLocaleString('es-ES')} km`);
   setText('markerKm', `${Number(bikeData.markerKm).toLocaleString('es-ES')} km`);
+  const displayDate = value => value ? formatDate(value) : 'Sin indicar';
+  setText('bikeItvNext', displayDate(bikeData.itvNextDate));
+  setText('bikeInsuranceExpiry', displayDate(bikeData.insuranceExpiryDate));
   const dashboardCards = document.querySelectorAll('#view-dashboard .stat-card');
   if (dashboardCards.length >= 2) {
     const realHours = Math.round(Number(bikeData.realHours)).toLocaleString('es-ES');
@@ -772,7 +775,8 @@ function renderAllBikeProfiles() {
   const latest = latestMaintenanceEvent();
   const selectedGrid = selected.querySelector('.detail-grid');
   if (selectedGrid) {
-    selectedGrid.innerHTML = `<div><span>Horas reales</span><strong>${Math.round(Number(bikeData.realHours)).toLocaleString('es-ES')} h</strong></div><div><span>Kilómetros reales</span><strong>${Number(bikeData.realKm).toLocaleString('es-ES')} km</strong></div><div class="last-maintenance-detail"><span>Último mantenimiento</span><strong>${safeText(latest?.description || 'Sin mantenimientos registrados')}</strong><small>${safeText(latest?.date || 'Registra el primero desde Mantenimiento')}</small></div>`;
+    const displayDate = value => value ? formatDate(value) : 'Sin indicar';
+    selectedGrid.innerHTML = `<div><span>Horas reales</span><strong>${Math.round(Number(bikeData.realHours)).toLocaleString('es-ES')} h</strong></div><div><span>Kilómetros reales</span><strong>${Number(bikeData.realKm).toLocaleString('es-ES')} km</strong></div><div><span>Próxima ITV</span><strong>${safeText(displayDate(bikeData.itvNextDate))}</strong></div><div><span>Caducidad del seguro</span><strong>${safeText(displayDate(bikeData.insuranceExpiryDate))}</strong></div><div class="last-maintenance-detail"><span>Último mantenimiento</span><strong>${safeText(latest?.description || 'Sin mantenimientos registrados')}</strong><small>${safeText(latest?.date || 'Registra el primero desde Mantenimiento')}</small></div>`;
   }
   view.querySelector('.page-heading .subtitle').textContent = `${bikeProfiles.length} ${bikeProfiles.length === 1 ? 'moto guardada' : 'motos guardadas'}. Selecciona una ficha para consultar su actividad y mantenimiento.`;
   let others = view.querySelector('.other-bike-profiles');
@@ -797,7 +801,8 @@ function renderAllBikeProfiles() {
     } else {
       card.querySelector('.profile-visual').textContent = 'Sin foto';
     }
-    const fields = [['Marca', profile.brand], ['Modelo', profile.model], ['Año', profile.year], ['Matrícula / ID', profile.plate || profile.id], ['Horas reales', `${Number(profile.realHours || 0).toLocaleString('es-ES')} h`], ['Horas del marcador', `${Number(profile.markerHours || 0).toLocaleString('es-ES')} h`], ['Kilómetros reales', `${Number(profile.realKm || 0).toLocaleString('es-ES')} km`], ['Kilómetros del marcador', `${Number(profile.markerKm || 0).toLocaleString('es-ES')} km`]];
+    const displayDate = value => value ? formatDate(value) : 'Sin indicar';
+    const fields = [['Marca', profile.brand], ['Modelo', profile.model], ['Año', profile.year], ['Matrícula / ID', profile.plate || profile.id], ['Horas reales', `${Number(profile.realHours || 0).toLocaleString('es-ES')} h`], ['Kilómetros reales', `${Number(profile.realKm || 0).toLocaleString('es-ES')} km`], ['Próxima ITV', displayDate(profile.itvNextDate)], ['Caducidad del seguro', displayDate(profile.insuranceExpiryDate)], ['Horas del marcador', `${Number(profile.markerHours || 0).toLocaleString('es-ES')} h`], ['Kilómetros del marcador', `${Number(profile.markerKm || 0).toLocaleString('es-ES')} km`]];
     fields.forEach(([label, value]) => {
       const field = document.createElement('div');
       const caption = document.createElement('span');
@@ -853,6 +858,8 @@ addBikeButton.addEventListener('click', () => {
   document.getElementById('formMarkerHours').value = 0;
   document.getElementById('formRealKm').value = 0;
   document.getElementById('formMarkerKm').value = 0;
+  document.getElementById('formItvNext').value = '';
+  document.getElementById('formInsuranceExpiry').value = '';
   document.getElementById('formPhoto').value = '';
   bikeModal.classList.remove('hidden');
 });
@@ -868,6 +875,8 @@ document.getElementById('editBike').addEventListener('click', () => {
   document.getElementById('formMarkerHours').value = bikeData.markerHours;
   document.getElementById('formRealKm').value = bikeData.realKm;
   document.getElementById('formMarkerKm').value = bikeData.markerKm;
+  document.getElementById('formItvNext').value = bikeData.itvNextDate || '';
+  document.getElementById('formInsuranceExpiry').value = bikeData.insuranceExpiryDate || '';
   document.getElementById('formPhoto').value = '';
   bikeModal.classList.remove('hidden');
 });
@@ -879,7 +888,7 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   event.preventDefault();
   if (creatingBike) {
     const newId = `moto-${Date.now()}`;
-    const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)) };
+    const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)), itvNextDate: document.getElementById('formItvNext').value, insuranceExpiryDate: document.getElementById('formInsuranceExpiry').value };
     const file = document.getElementById('formPhoto').files[0];
     const finishNewBike = () => { saveBikeProfiles(); activeBikeId = newId; bikeProfiles.push(newProfile); localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles)); localStorage.setItem('activeBikeId', activeBikeId); events = []; saveEvents(); window.location.reload(); };
     if (file) { const reader = new FileReader(); reader.onload = () => { newProfile.photo = reader.result; finishNewBike(); }; reader.readAsDataURL(file); } else finishNewBike();
@@ -893,6 +902,8 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   bikeData.markerHours = Math.round(Number(document.getElementById('formMarkerHours').value));
   bikeData.realKm = Math.round(Number(document.getElementById('formRealKm').value));
   bikeData.markerKm = Math.round(Number(document.getElementById('formMarkerKm').value));
+  bikeData.itvNextDate = document.getElementById('formItvNext').value;
+  bikeData.insuranceExpiryDate = document.getElementById('formInsuranceExpiry').value;
   const file = document.getElementById('formPhoto').files[0];
   const save = () => { saveBikeProfiles(); maintenancePlan = filterMaintenancePlan(JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null') || defaultMaintenancePlan); updateBikeView(); renderBikeSwitcher(); renderMaintenancePlan(); renderMaintenanceChecklist(); closeBikeModal(); };
   if (file) { const reader = new FileReader(); reader.onload = () => { bikeData.photo = reader.result; save(); }; reader.readAsDataURL(file); } else save();
