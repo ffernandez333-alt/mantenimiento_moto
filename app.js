@@ -28,6 +28,31 @@ function showView(view) {
 navItems.forEach(item => item.addEventListener('click', () => showView(item.dataset.view)));
 document.getElementById('mobileMenu').addEventListener('click', () => sidebar.classList.toggle('open'));
 
+const appShell = document.querySelector('.app-shell');
+const sidebarToggle = document.getElementById('sidebarToggle');
+function setSidebarCollapsed(collapsed, persist = true) {
+  if (!appShell || !sidebarToggle) return;
+  appShell.classList.toggle('sidebar-collapsed', collapsed);
+  sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+  sidebarToggle.setAttribute('aria-label', collapsed ? 'Mostrar barra lateral' : 'Ocultar barra lateral');
+  const label = sidebarToggle.querySelector('.sidebar-toggle-label');
+  const icon = sidebarToggle.querySelector('[aria-hidden]');
+  if (label) label.textContent = collapsed ? 'Mostrar' : 'Ocultar';
+  if (icon) icon.textContent = collapsed ? '›' : '‹';
+  if (persist) localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
+}
+setSidebarCollapsed(localStorage.getItem('sidebarCollapsed') === '1', false);
+sidebarToggle?.addEventListener('click', () => setSidebarCollapsed(!appShell.classList.contains('sidebar-collapsed')));
+
+// Ayudas breves para los controles principales. También se muestran al enfocar
+// con teclado, para que la función sea clara sin añadir texto permanente.
+function setActionTooltip(element, text) {
+  if (!element) return;
+  element.dataset.tooltip = text;
+  element.setAttribute('aria-label', text);
+}
+document.querySelectorAll('#addEvent, #addEventDash, #addEventVida, #addEventMaint').forEach(element => setActionTooltip(element, 'Registro resumido de una salida, incidencia o trabajo realizado.'));
+
 const modal = document.getElementById('eventModal');
 let editingIndex = null;
 let eventAttachmentDraft = [];
@@ -64,13 +89,37 @@ const maintenanceParts = document.createElement('fieldset');
 maintenanceParts.className = 'maintenance-parts';
 maintenanceParts.innerHTML = '<legend>Componentes intervenidos</legend><label><input type="checkbox" value="Pistón" /> Pistón</label><label><input type="checkbox" value="Segmentos" /> Segmentos</label><label><input type="checkbox" value="Cilindro" /> Cilindro</label><label><input type="checkbox" value="Biela" /> Biela</label>';
 document.getElementById('eventType').closest('label').after(maintenanceParts);
+const componentCatalog = ['Cadena', 'Corona', 'Piñón', 'Pastillas de freno delanteras', 'Pastillas de freno traseras', 'Líquido de frenos', 'Líquido de embrague', 'Cámara delantera', 'Cámara trasera', 'Mousse delantero', 'Mousse trasero', 'Aceite del cambio', 'Bujía', 'Líquido refrigerante', 'Fibra del escape', 'Pistón', 'Segmentos', 'Biela', 'Filtro de aire', 'Servicio de horquilla', 'Servicio de amortiguador', 'Tamiz de combustible', 'Filtro del depósito de combustible', 'Guía de cadena', 'Embrague', 'Disco de freno delantero', 'Disco de freno trasero', 'Neumático delantero', 'Neumático trasero', 'Filtro de combustible', 'Pipa de bujía', 'Cilindro', 'Caja de cambios', 'Bomba de aceite', 'Batería', 'Rodamientos de rueda', 'Cojinetes de dirección', 'Cojinetes de basculante', 'Radios', 'Silencioso', 'Distribución de escape', 'Motor de arranque'];
+const componentChangeField = document.createElement('fieldset');
+componentChangeField.className = 'component-change-field';
+componentChangeField.innerHTML = `<legend>Componente sustituido</legend><div class="form-row"><label>Componente<select id="eventComponent">${componentCatalog.map(component => `<option value="${safeText(component)}">${safeText(component)}</option>`).join('')}<option value="__custom__">Otro componente…</option></select></label><label>Marca / referencia<input id="eventComponentReference" placeholder="Opcional" /></label></div><label class="custom-component-label" hidden>Nombre del componente nuevo<input id="eventComponentCustom" placeholder="Ej. Protector de basculante" /></label><small>Este cambio se añadirá al Libro de vida y actualizará la pestaña Componentes.</small>`;
+maintenanceParts.after(componentChangeField);
+const addComponentInEvent = document.createElement('button');
+addComponentInEvent.type = 'button';
+addComponentInEvent.className = 'quiet-button add-component-in-event';
+addComponentInEvent.textContent = '＋ Añadir componente a este evento';
+addComponentInEvent.title = 'Añade un componente nuevo sin salir del registro.';
+componentChangeField.before(addComponentInEvent);
+addComponentInEvent.addEventListener('click', () => {
+  document.getElementById('eventType').value = 'Sustitución de componente';
+  document.getElementById('eventComponent').value = '__custom__';
+  document.getElementById('eventComponentCustom').value = '';
+  toggleMaintenanceParts();
+  document.getElementById('eventComponentCustom').focus();
+});
 const eventAttachmentField = document.createElement('div');
 eventAttachmentField.className = 'attachment-field';
 eventAttachmentField.innerHTML = `<strong>Archivos adjuntos</strong><div class="attachment-pickers"><label class="attachment-picker">＋ Añadir fichero<input id="eventAttachments" type="file" accept="${attachmentAccept}" multiple /></label><label class="attachment-picker">◉ Usar cámara<input id="eventCamera" type="file" accept="image/*,video/*" capture="environment" /></label></div><small>Fotos, vídeos, PDF y otros documentos. Máximo 15 MB por archivo.</small><div id="eventAttachmentList" class="event-attachments"></div>`;
 document.querySelector('#eventForm .modal-actions')?.before(eventAttachmentField);
 document.getElementById('eventAttachments')?.addEventListener('change', async event => { eventAttachmentDraft.push(...await filesToAttachments(event.target.files)); renderEventAttachmentDraft(); event.target.value = ''; });
 document.getElementById('eventCamera')?.addEventListener('change', async event => { eventAttachmentDraft.push(...await filesToAttachments(event.target.files)); renderEventAttachmentDraft(); event.target.value = ''; });
-function toggleMaintenanceParts() { maintenanceParts.hidden = document.getElementById('eventType').value !== 'Mantenimiento'; }
+function toggleMaintenanceParts() {
+  const type = document.getElementById('eventType').value;
+  maintenanceParts.hidden = type !== 'Mantenimiento';
+  componentChangeField.hidden = type !== 'Sustitución de componente';
+  document.querySelector('.custom-component-label').hidden = document.getElementById('eventComponent').value !== '__custom__';
+}
+document.getElementById('eventComponent').addEventListener('change', toggleMaintenanceParts);
 document.getElementById('eventType').addEventListener('change', toggleMaintenanceParts);
 toggleMaintenanceParts();
 function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -81,11 +130,16 @@ function openModal() {
   modal.querySelector('h2').textContent = 'Registrar evento';
   modal.querySelector('button[type="submit"]').textContent = 'Guardar evento';
   document.getElementById('eventDate').value = todayISO();
+  document.getElementById('eventType').value = 'Salida';
+  toggleMaintenanceParts();
   document.getElementById('eventHours').value = Number(bikeData.markerHours).toFixed(1);
   document.getElementById('eventKm').value = Math.round(Number(bikeData.markerKm));
   document.getElementById('eventRealHours').value = Math.round(Number(bikeData.realHours));
   document.getElementById('eventRealKm').value = Math.round(Number(bikeData.realKm));
   maintenanceParts.querySelectorAll('input').forEach(input => { input.checked = false; });
+  document.getElementById('eventComponent').selectedIndex = 0;
+  document.getElementById('eventComponentReference').value = '';
+  document.getElementById('eventComponentCustom').value = '';
   renderEventAttachmentDraft();
   modal.classList.remove('hidden');
   document.getElementById('eventDescription').focus();
@@ -105,6 +159,19 @@ function openDeleteConfirmation(title, onConfirm) {
 ['addEvent', 'addEventDash', 'addEventVida', 'addEventMaint'].forEach(id => document.getElementById(id)?.addEventListener('click', openModal));
 const maintenanceEventButton = document.getElementById('addEventMaint');
 if (maintenanceEventButton) maintenanceEventButton.innerHTML = '<span>＋</span> Registrar evento';
+const addComponentButton = document.querySelector('#view-componentes .page-heading .primary-button');
+if (addComponentButton) {
+  addComponentButton.id = 'addComponentButton';
+  addComponentButton.addEventListener('click', () => {
+    openModal();
+    generalEventType.value = 'Sustitución de componente';
+    document.getElementById('eventComponent').value = '__custom__';
+    document.getElementById('eventComponentCustom').value = '';
+    document.getElementById('eventDescription').value = 'Instalación de componente';
+    toggleMaintenanceParts();
+    document.getElementById('eventComponentCustom').focus();
+  });
+}
 const eventModalSubtitle = document.querySelector('#eventModal .modal-subtitle');
 if (eventModalSubtitle) eventModalSubtitle.textContent = 'Añade una salida, gasto, documento o nota a la línea de vida.';
 const generalEventType = document.getElementById('eventType');
@@ -183,7 +250,7 @@ function realHoursFor(item) {
   return noteMatch ? noteMatch[1].replace(',', '.') : item.hours;
 }
 function eventTitle(item) {
-  const title = item.type === 'Mantenimiento' ? `${item.description} (${realHoursFor(item) ? wholeReading(realHoursFor(item)) : '—'} h reales)` : item.description;
+  const title = item.type === 'Mantenimiento' ? `${item.description} (${realHoursFor(item) ? wholeReading(realHoursFor(item)) : '—'} h reales)` : item.type === 'Sustitución de componente' && item.componentChange?.name ? `${item.description} · ${item.componentChange.name}` : item.description;
   return safeText(title);
 }
 function isPistonEvent(item) { return (item.maintenanceParts || []).includes('Pistón') || /cambio pist[oó]n|pist[oó]n\s+[a-c]\b|nuevos segmentos|motor abierto|revisi[oó]n pist[oó]n\/cilindro/i.test(`${item.description} ${item.notes || ''}`); }
@@ -360,6 +427,7 @@ document.getElementById('timeline').addEventListener('click', event => {
         events.splice(index, 1);
       }
       saveEvents();
+      syncComponentsFromEvents();
       renderTimeline();
       renderUsageChart();
       renderMaintenanceChecklist();
@@ -408,6 +476,11 @@ document.getElementById('timeline').addEventListener('click', event => {
   document.getElementById('eventType').value = item.type;
   toggleMaintenanceParts();
   maintenanceParts.querySelectorAll('input').forEach(input => { input.checked = (item.maintenanceParts || []).includes(input.value); });
+  const savedComponentName = item.componentChange?.name || componentCatalog[0];
+  document.getElementById('eventComponent').value = componentCatalog.includes(savedComponentName) ? savedComponentName : '__custom__';
+  document.getElementById('eventComponentReference').value = item.componentChange?.reference || '';
+  document.getElementById('eventComponentCustom').value = componentCatalog.includes(savedComponentName) ? '' : savedComponentName;
+  toggleMaintenanceParts();
   document.getElementById('eventDescription').value = item.description;
   document.getElementById('eventHours').value = item.hours || '';
   document.getElementById('eventKm').value = item.km || '';
@@ -440,10 +513,16 @@ document.getElementById('eventForm').addEventListener('submit', async event => {
   const actualKm = Number(bikeData.realKm).toLocaleString('es-ES');
   const selectedParts = [...maintenanceParts.querySelectorAll('input:checked')].map(input => input.value);
   const partsNote = type === 'Mantenimiento' && selectedParts.length ? `Componentes intervenidos: ${selectedParts.join(', ')}.` : '';
+  const selectedComponentName = document.getElementById('eventComponent').value === '__custom__' ? document.getElementById('eventComponentCustom').value.trim() : document.getElementById('eventComponent').value;
+  if (type === 'Sustitución de componente' && !selectedComponentName) return;
+  const componentChange = type === 'Sustitución de componente' ? { name: selectedComponentName, reference: document.getElementById('eventComponentReference').value.trim() } : null;
+  const componentNote = componentChange ? `Componente sustituido: ${componentChange.name}${componentChange.reference ? ` (${componentChange.reference})` : ''}.` : '';
   const markerNote = type === 'Cambio de marcador' ? `Marcador actualizado a ${Number.isFinite(visibleHours) ? visibleHours : bikeData.markerHours} h / ${Number.isFinite(visibleKm) ? visibleKm : bikeData.markerKm} km. Uso real acumulado: ${actualHours} h / ${actualKm} km.` : '';
   const selectedDate = document.getElementById('eventDate').value || todayISO();
-  const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: document.getElementById('eventRealHours').value, realKm: document.getElementById('eventRealKm').value, maintenanceParts: selectedParts, attachments: eventAttachmentDraft, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), partsNote, markerNote].filter(Boolean).join(' ') };
+  const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: document.getElementById('eventRealHours').value, realKm: document.getElementById('eventRealKm').value, maintenanceParts: selectedParts, componentChange, attachments: eventAttachmentDraft, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), partsNote, componentNote, markerNote].filter(Boolean).join(' ') };
   if (editingIndex === null) events.unshift(editedEvent); else events[editingIndex] = editedEvent;
+  if (componentChange) updateComponentFromEvent(componentChange, editedEvent);
+  syncComponentsFromEvents();
   saveEvents();
   renderTimeline();
   updateBikeView();
@@ -461,6 +540,70 @@ const bikeData = { ...bikeDefaults, ...(bikeProfiles.find(profile => profile.id 
 const defaultBikePhoto = 'assets/ktm-250-exc-tpi-2021.png';
 function profilePhoto(profile) {
   return profile.photo || (profile.brand === 'KTM' && profile.model === bikeDefaults.model ? defaultBikePhoto : 'assets/moto-sin-foto.svg');
+}
+const componentDefinitions = [
+  ['Cadena', 'Transmisión', 80, '78010267118', 99.96], ['Corona', 'Transmisión', 80, '', null], ['Piñón', 'Transmisión', 80, '79233129014', null], ['Pastillas de freno delanteras', 'Frenos', 80, '', null], ['Pastillas de freno traseras', 'Frenos', 80, '', null], ['Líquido de frenos', 'Frenos', 12, '00062030000', null], ['Líquido de embrague', 'Embrague', 12, '', null], ['Cámara delantera', 'Ruedas', 80, '', null], ['Cámara trasera', 'Ruedas', 80, '', null], ['Mousse delantero', 'Ruedas', 80, '', null], ['Mousse trasero', 'Ruedas', 80, '', null], ['Aceite del cambio', 'Lubricación', 40, '', null], ['Bujía', 'Motor', 80, '', null], ['Líquido refrigerante', 'Refrigeración', 48, '', null], ['Fibra del escape', 'Escape', 80, '', null], ['Pistón', 'Motor', 80, '55530138100', 901.68], ['Segmentos', 'Motor', 80, '54830232000', null], ['Biela', 'Motor', 160, '54830015244', null], ['Filtro de aire', 'Admisión', null, '79006015000', 20.04], ['Servicio de horquilla', 'Suspensión', 40, '', null], ['Servicio de amortiguador', 'Suspensión', 40, '', null], ['Tamiz de combustible', 'Alimentación', 80, '', null], ['Filtro del depósito de combustible', 'Alimentación', 80, '', null], ['Guía de cadena', 'Transmisión', 80, 'A48004970044', 49.08], ['Embrague', 'Motor', 80, '54832011110', null], ['Disco de freno delantero', 'Frenos', 80, '', null], ['Disco de freno trasero', 'Frenos', 80, '', null], ['Neumático delantero', 'Ruedas', null, '', null], ['Neumático trasero', 'Ruedas', null, '', null], ['Filtro de combustible', 'Alimentación', 80, '', null], ['Pipa de bujía', 'Motor', 80, '', null], ['Cilindro', 'Motor', 80, '55530138100', 901.68], ['Caja de cambios', 'Transmisión', 160, '', null], ['Bomba de aceite', 'Lubricación', 80, '', null], ['Batería', 'Electricidad', 40, '', null], ['Rodamientos de rueda', 'Ruedas', 80, '', null], ['Cojinetes de dirección', 'Dirección', 40, '', null], ['Cojinetes de basculante', 'Chasis', 40, '', null], ['Radios', 'Ruedas', 40, '', null], ['Silencioso', 'Escape', 80, '', null], ['Distribución de escape', 'Motor', 80, '', null], ['Motor de arranque', 'Electricidad', 80, '', null]
+].map(([name, category, intervalHours, reference, catalogPrice]) => ({ name, category, intervalHours, reference, catalogPrice, status: 'Pendiente de registrar', detail: 'Sin cambio registrado', tone: 'neutral' }));
+function componentStorageKey() { return bikeStorageKey('motoComponents'); }
+const storedComponentRecords = JSON.parse(localStorage.getItem(componentStorageKey()) || 'null');
+let componentRecords = componentDefinitions.map(definition => ({ ...definition, ...(storedComponentRecords || []).find(item => item.name === definition.name) }));
+if (Array.isArray(storedComponentRecords)) storedComponentRecords.filter(item => !['Kit de transmisión', 'Neumáticos'].includes(item.name) && !componentRecords.some(record => record.name === item.name)).forEach(item => componentRecords.push(item));
+function saveComponents() { localStorage.setItem(componentStorageKey(), JSON.stringify(componentRecords)); }
+function updateComponentFromEvent(change, eventRecord) {
+  if (!change?.name) return;
+  let record = componentRecords.find(item => item.name === change.name);
+  if (!record) { record = { name: change.name, status: 'Sustituido recientemente', detail: 'Componente registrado desde un evento', tone: 'good' }; componentRecords.push(record); }
+  record.status = 'Sustituido recientemente';
+  record.tone = 'good';
+  record.detail = `${eventRecord.date} · ${eventRecord.realHours || eventRecord.hours || '—'} h · ${eventRecord.realKm || eventRecord.km || '—'} km`;
+  record.lastChange = { date: eventRecord.date, dateISO: eventRecord.dateISO, realHours: eventRecord.realHours, realKm: eventRecord.realKm, cost: eventRecord.cost || '', reference: change.reference || '' };
+  record.history = [...(record.history || []).filter(item => item.dateISO !== eventRecord.dateISO || item.reference !== (change.reference || '')), record.lastChange];
+  saveComponents();
+  renderComponents();
+}
+function syncComponentsFromEvents() {
+  componentRecords.forEach(record => {
+    const changes = events.filter(item => item.type === 'Sustitución de componente' && item.componentChange?.name === record.name).sort((a, b) => String(b.dateISO || '').localeCompare(String(a.dateISO || '')));
+    if (!changes.length) {
+      if (record.lastChange) {
+        delete record.lastChange;
+        record.status = 'Pendiente de registrar';
+        record.tone = 'neutral';
+        record.detail = 'Último cambio eliminado del Libro de vida';
+      }
+      return;
+    }
+    const latest = changes[0];
+    record.status = 'Sustituido recientemente';
+    record.tone = 'good';
+    record.detail = `${latest.date} · ${latest.realHours || latest.hours || '—'} h · ${latest.realKm || latest.km || '—'} km`;
+    record.lastChange = { date: latest.date, dateISO: latest.dateISO, realHours: latest.realHours, realKm: latest.realKm, cost: latest.cost || '', reference: latest.componentChange.reference || '' };
+  });
+  saveComponents();
+  renderComponents();
+}
+function renderComponents() {
+  const grid = document.querySelector('#view-componentes .component-grid');
+  if (!grid) return;
+  const iconFor = item => /cadena|corona|piñón|guía/i.test(item.name) ? '⛓' : /freno|disco|líquido/i.test(item.name) ? '◉' : /rueda|cámara|mousse|neumático|radios/i.test(item.name) ? '◌' : /horquilla|amortiguador/i.test(item.name) ? '╱' : /motor|pistón|segmentos|biela|embrague|bujía|cilindro/i.test(item.name) ? '⚙' : '◆';
+  const imageSources = {
+    drivetrain: 'assets/components/drivetrain.svg',
+    engine: 'assets/components/engine.svg',
+    suspension: 'assets/components/suspension.svg',
+    consumables: 'assets/components/consumables.svg',
+    wheel: 'assets/components/wheel.svg',
+    brakes: 'assets/components/brakes.svg',
+    exhaust: 'assets/components/exhaust.svg',
+    electrical: 'assets/components/electrical.svg'
+  };
+  const sourceFor = item => /cadena|corona|piñón|guía/i.test(item.name) ? imageSources.drivetrain : /horquilla|amortiguador|cojinete|rodamiento/i.test(item.name) ? imageSources.suspension : /pistón|segmentos|biela|embrague|cilindro|caja de cambios/i.test(item.name) ? imageSources.engine : /freno|disco/i.test(item.name) ? imageSources.brakes : /cámara|mousse|neumático|radios|rueda/i.test(item.name) ? imageSources.wheel : /escape|silencioso|fibra/i.test(item.name) ? imageSources.exhaust : /batería|motor de arranque/i.test(item.name) ? imageSources.electrical : imageSources.consumables;
+  const fallbackFor = item => `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="52" viewBox="0 0 64 52"><rect width="64" height="52" rx="9" fill="#fff1e6"/><text x="32" y="34" text-anchor="middle" font-size="24" fill="#ef7620">${iconFor(item)}</text></svg>`)}`;
+  const imageFor = item => sourceFor(item);
+  const lastChange = item => item.lastChange ? `${safeText(item.lastChange.date)} · ${safeText(item.lastChange.realHours || '—')} h · ${safeText(item.lastChange.realKm || '—')} km` : 'Sin cambio registrado';
+  const nextChange = item => { const hours = Number(item.lastChange?.realHours); if (!Number.isFinite(hours) || !item.intervalHours) return item.intervalHours ? `${item.intervalHours} h teóricas` : 'Por estado'; return `${Math.round(hours + item.intervalHours).toLocaleString('es-ES')} h`; };
+  const averageCost = item => { const values = (item.history || []).map(change => { const raw = String(change.cost || '').replace(/[^0-9,.-]/g, ''); return Number(raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw); }).filter(Number.isFinite); if (!values.length && item.catalogPrice == null) return 'Pendiente'; const total = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : Number(item.catalogPrice); return `${total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`; };
+  grid.innerHTML = `<div class="component-table-scroll"><table class="component-table"><thead><tr><th scope="col">Pieza</th><th scope="col">Componente</th><th scope="col">Estado</th><th scope="col">Último cambio</th><th scope="col">Próximo cambio teórico</th><th scope="col">Coste medio</th></tr></thead><tbody>${componentRecords.map(item => `<tr><td><img class="component-thumbnail" src="${imageFor(item)}" data-fallback="${fallbackFor(item)}" alt="Imagen identificativa de ${safeText(item.name)}" loading="lazy" /></td><th scope="row"><strong>${safeText(item.name)}</strong><small>${safeText(item.category || 'Otros')}${item.reference ? ` · Ref. ${safeText(item.reference)}` : ''}</small></th><td><span class="status-pill ${item.tone === 'warning' ? 'warning-pill' : item.tone === 'good' ? 'good' : ''}"><i></i> ${safeText(item.status)}</span></td><td>${lastChange(item)}</td><td>${nextChange(item)}</td><td>${safeText(averageCost(item))}</td></tr>`).join('')}</tbody></table></div><p class="component-source-note">Las imágenes son referencias visuales de piezas de moto de campo y los datos de recambio se completan con la referencia concreta de cada moto.</p>`;
+  grid.querySelectorAll('.component-thumbnail').forEach(image => image.addEventListener('error', () => { image.src = image.dataset.fallback; }, { once: true }));
 }
 function maintenanceSchedule(label) { return MaintenanceSchedule.calculate(events, label, bikeData.realHours, todayISO()); }
 function scheduleText(schedule) {
@@ -583,10 +726,15 @@ function updateBikeView() {
   renderAllBikeProfiles();
 }
 function selectBike(id) {
-  if (id === activeBikeId || !bikeProfiles.some(profile => profile.id === id)) return;
+  if (!bikeProfiles.some(profile => profile.id === id)) return;
+  // Pulsar una moto siempre lleva a su página de inicio (Mis motos),
+  // incluso si ya era la moto seleccionada.
+  if (id === activeBikeId) {
+    showView('motos');
+    return;
+  }
   saveBikeProfiles();
-  const currentPage = [...pages].find(page => !page.classList.contains('hidden'));
-  sessionStorage.setItem('motoReturnView', currentPage?.id.replace('view-', '') || 'hoy');
+  sessionStorage.setItem('motoReturnView', 'motos');
   localStorage.setItem('activeBikeId', id);
   window.location.reload();
 }
@@ -665,6 +813,7 @@ function renderAllBikeProfiles() {
   view.querySelector('.profile-section-heading p').textContent = `Moto seleccionada: ${bikeData.plate || activeBikeId}. Intervalos usados para generar avisos.`;
 }
 updateBikeView();
+renderComponents();
 function saveBikeProfiles() {
   const current = { ...bikeData, id: activeBikeId };
   const index = bikeProfiles.findIndex(profile => profile.id === activeBikeId);
@@ -675,8 +824,8 @@ function saveBikeProfiles() {
 function renderBikeSwitcher() {
   const switcher = document.querySelector('.bike-switcher');
   if (!switcher) return;
-  const sections = [{ view: 'vida', label: 'Libro de vida', icon: '↗' }, { view: 'mantenimiento', label: 'Mantenimiento', icon: '⌁' }, { view: 'componentes', label: 'Componentes', icon: '◫' }, { view: 'documentos', label: 'Documentos y gastos', icon: '□' }];
-  switcher.innerHTML = `<div class="bike-list-heading">Mis motos</div><div class="bike-tree" aria-label="Mis motos">${bikeProfiles.map(profile => `<div class="bike-tree-item"><button type="button" class="bike-list-item ${profile.id === activeBikeId ? 'active' : ''}" aria-pressed="${profile.id === activeBikeId}" data-bike-id="${safeText(profile.id)}"><img src="${profilePhoto(profile)}" alt="" /><span><strong>${safeText(`${profile.brand} ${profile.model}`)}</strong><small>${safeText(`${profile.year} · ${profile.plate || profile.id}`)}</small></span><b aria-hidden="true">${profile.id === activeBikeId ? '⌄' : '›'}</b></button>${profile.id === activeBikeId ? `<div class="bike-section-list">${sections.map(section => `<button type="button" class="bike-section-item" data-section-view="${section.view}"><span>${section.icon}</span>${section.label}</button>`).join('')}</div>` : ''}</div>`).join('')}</div><button type="button" class="sidebar-add-bike" id="addBikeSidebar"><span>＋</span> Añadir moto</button>`;
+  const sections = [{ view: 'vida', label: 'Libro de vida', icon: '↗', tooltip: 'Consulta el historial de salidas, mantenimientos y documentos.' }, { view: 'mantenimiento', label: 'Mantenimiento', icon: '⌁', tooltip: 'Inicia una revisión y completa sus tareas.' }, { view: 'componentes', label: 'Componentes', icon: '◫', tooltip: 'Consulta el estado y la vida útil de los componentes.' }, { view: 'documentos', label: 'Documentos y gastos', icon: '□', tooltip: 'Guarda y consulta documentos, facturas y gastos.' }];
+  switcher.innerHTML = `<div class="bike-list-heading">Mis motos</div><div class="bike-tree" aria-label="Mis motos">${bikeProfiles.map(profile => `<div class="bike-tree-item"><button type="button" class="bike-list-item ${profile.id === activeBikeId ? 'active' : ''}" aria-pressed="${profile.id === activeBikeId}" data-bike-id="${safeText(profile.id)}"><img src="${profilePhoto(profile)}" alt="" /><span><strong>${safeText(`${profile.brand} ${profile.model}`)}</strong><small>${safeText(`${profile.year} · ${profile.plate || profile.id}`)}</small></span><b aria-hidden="true">${profile.id === activeBikeId ? '⌄' : '›'}</b></button>${profile.id === activeBikeId ? `<div class="bike-section-list">${sections.map(section => `<button type="button" class="bike-section-item" data-section-view="${section.view}" data-tooltip="${section.tooltip}"><span>${section.icon}</span>${section.label}</button>`).join('')}</div>` : ''}</div>`).join('')}</div><button type="button" class="sidebar-add-bike" id="addBikeSidebar"><span>＋</span> Añadir moto</button>`;
   switcher.querySelectorAll('.bike-list-item').forEach(button => button.addEventListener('click', () => selectBike(button.dataset.bikeId)));
   switcher.querySelectorAll('.bike-section-item').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); showView(button.dataset.sectionView); }));
 }
@@ -805,7 +954,7 @@ function renderMaintenanceLauncher() {
   const sections = maintenanceSectionsForSelection();
   const activeCombined = maintenancePlan.sections.filter(section => section.sourceLabels && hasMaintenanceProgress(section.label));
   summary.className = 'maintenance-summary maintenance-launcher';
-  summary.innerHTML = `<div class="maintenance-launch-card"><div class="maintenance-launch-header"><div><span class="interval-label">NUEVA REVISIÓN</span><h2>Iniciar mantenimiento</h2><p>Selecciona uno o varios mantenimientos. Las tareas repetidas se mostrarán una sola vez.</p></div><button type="button" class="primary-button" id="startSelectedMaintenance">Iniciar mantenimiento</button></div><div class="maintenance-selection" role="group" aria-label="Mantenimientos disponibles">${sections.map(section => `<label><input type="checkbox" value="${safeText(section.label)}" /> <span><strong>${safeText(section.label)}</strong><small>${section.tasks.length} tareas · ${safeText(section.kind)}</small></span></label>`).join('')}</div>${activeCombined.length ? `<div class="maintenance-active-list"><strong>Revisiones en curso</strong>${activeCombined.map(section => `<button type="button" class="quiet-button active-maintenance-button" data-maintenance-label="${safeText(section.label)}">Continuar: ${safeText(section.label)}</button>`).join('')}</div>` : ''}</div>`;
+  summary.innerHTML = `<div class="maintenance-launch-card"><div class="maintenance-launch-header"><div><span class="interval-label">NUEVA REVISIÓN</span><h2>Iniciar mantenimiento</h2><p>Selecciona uno o varios mantenimientos. Las tareas repetidas se mostrarán una sola vez.</p></div><button type="button" class="primary-button" id="startSelectedMaintenance" data-tooltip="Selecciona una o varias revisiones y abre su ficha de mantenimiento.">Iniciar mantenimiento</button></div><div class="maintenance-selection" role="group" aria-label="Mantenimientos disponibles">${sections.map(section => `<label><input type="checkbox" value="${safeText(section.label)}" /> <span><strong>${safeText(section.label)}</strong><small>${section.tasks.length} tareas · ${safeText(section.kind)}</small></span></label>`).join('')}</div>${activeCombined.length ? `<div class="maintenance-active-list"><strong>Revisiones en curso</strong>${activeCombined.map(section => `<button type="button" class="quiet-button active-maintenance-button" data-maintenance-label="${safeText(section.label)}">Continuar: ${safeText(section.label)}</button>`).join('')}</div>` : ''}</div>`;
   summary.querySelectorAll('.active-maintenance-button').forEach(button => button.addEventListener('click', () => {
     localStorage.setItem(`motoMaintenanceChecklistInterval:${maintenancePlanKey()}`, button.dataset.maintenanceLabel);
     maintenanceSession(button.dataset.maintenanceLabel);
@@ -896,7 +1045,7 @@ function checklistStateKey(sectionLabel) { return `motoMaintenanceTasks:${mainte
 function maintenanceSessionKey(sectionLabel) { return `motoMaintenanceSession:${maintenancePlanKey()}:${encodeURIComponent(sectionLabel)}`; }
 function readChecklistState(sectionLabel) { return JSON.parse(localStorage.getItem(checklistStateKey(sectionLabel)) || '{}'); }
 function readMaintenanceSession(sectionLabel) { return JSON.parse(localStorage.getItem(maintenanceSessionKey(sectionLabel)) || 'null'); }
-function hasMaintenanceProgress(sectionLabel) { const state = readChecklistState(sectionLabel); return Boolean(readMaintenanceSession(sectionLabel) || Object.values(state).some(item => item?.done || item?.na || item?.note)); }
+function hasMaintenanceProgress(sectionLabel) { const state = readChecklistState(sectionLabel); return Boolean(readMaintenanceSession(sectionLabel) || state.notes?.trim() || Object.values(state).some(item => item?.done || item?.na || item?.note)); }
 function maintenanceIsComplete(sectionLabel) { const section = maintenancePlan?.sections?.find(item => item.label === sectionLabel); if (!section) return false; const state = readChecklistState(sectionLabel); return section.tasks.length > 0 && section.tasks.every((_, index) => state[index]?.done || state[index]?.na); }
 function maintenanceProgress(sectionLabel) { const section = maintenancePlan?.sections?.find(item => item.label === sectionLabel); if (!section) return { completed: 0, total: 0, percent: 0 }; const state = readChecklistState(sectionLabel); const completed = section.tasks.filter((_, index) => state[index]?.done || state[index]?.na).length; return { completed, total: section.tasks.length, percent: section.tasks.length ? Math.round((completed / section.tasks.length) * 100) : 0 }; }
 function maintenanceEventId(sectionLabel) { return `maintenance-${maintenancePlanKey()}-${encodeURIComponent(sectionLabel)}`; }
@@ -934,9 +1083,10 @@ function syncMaintenanceProgressEvent(sectionLabel) {
   if (!section || !hasMaintenanceProgress(sectionLabel)) return;
   const session = maintenanceSession(sectionLabel);
   const progress = maintenanceProgress(sectionLabel);
+  const freeNotes = String(readChecklistState(sectionLabel).notes || '').trim();
   const taskAttachments = section.tasks.flatMap((_, index) => readChecklistState(sectionLabel)[index]?.attachments || []);
   const id = session.eventId || maintenanceEventId(sectionLabel);
-  const event = { maintenanceEventId: id, maintenanceInterval: sectionLabel, maintenanceStatus: maintenanceIsComplete(sectionLabel) ? 'completed' : 'in_progress', maintenanceCompleted: progress.completed, maintenanceTotal: progress.total, maintenancePercent: progress.percent, attachments: taskAttachments, type: 'Mantenimiento', description: `Revisión · ${sectionLabel}${maintenanceIsComplete(sectionLabel) ? '' : ' (en curso)'}`, date: formatDate(session.date || todayISO()), dateISO: session.date || todayISO(), hours: readingNumber(session.markerHours), km: readingNumber(session.markerKm), realHours: readingNumber(session.realHours), realKm: readingNumber(session.realKm), notes: `Mantenimiento: ${progress.completed} de ${progress.total} tareas resueltas.` };
+  const event = { maintenanceEventId: id, maintenanceInterval: sectionLabel, maintenanceStatus: maintenanceIsComplete(sectionLabel) ? 'completed' : 'in_progress', maintenanceCompleted: progress.completed, maintenanceTotal: progress.total, maintenancePercent: progress.percent, attachments: taskAttachments, type: 'Mantenimiento', description: `Revisión · ${sectionLabel}${maintenanceIsComplete(sectionLabel) ? '' : ' (en curso)'}`, date: formatDate(session.date || todayISO()), dateISO: session.date || todayISO(), hours: readingNumber(session.markerHours), km: readingNumber(session.markerKm), realHours: readingNumber(session.realHours), realKm: readingNumber(session.realKm), notes: [`Mantenimiento: ${progress.completed} de ${progress.total} tareas resueltas.`, freeNotes].filter(Boolean).join(' ') };
   const existingIndex = events.findIndex(item => item.maintenanceEventId === id);
   if (existingIndex >= 0) events[existingIndex] = { ...events[existingIndex], ...event };
   else events.unshift(event);
@@ -959,6 +1109,7 @@ function syncCompletedMaintenanceEvent(sectionLabel) {
   const progress = maintenanceProgress(sectionLabel);
   const taskAttachments = section.tasks.flatMap((_, index) => state[index]?.attachments || []);
   const taskNotes = section.tasks.map((task, index) => state[index]?.note ? `${task}: ${state[index].note}` : '').filter(Boolean).join(' · ');
+  const freeNotes = String(state.notes || '').trim();
   const id = session.eventId || maintenanceEventId(sectionLabel);
   const completedDate = session.date || todayISO();
   const event = {
@@ -978,7 +1129,7 @@ function syncCompletedMaintenanceEvent(sectionLabel) {
     km: Math.round(readingNumber(session.markerKm)),
     realHours: readingNumber(session.realHours),
     realKm: readingNumber(session.realKm),
-    notes: [`Mantenimiento completado (${section.tasks.length} tareas).`, taskNotes].filter(Boolean).join(' ')
+    notes: [`Mantenimiento completado (${section.tasks.length} tareas).`, taskNotes, freeNotes].filter(Boolean).join(' ')
   };
   const existingIndex = events.findIndex(item => item.maintenanceEventId === id);
   if (existingIndex >= 0) events[existingIndex] = { ...events[existingIndex], ...event };
@@ -1028,7 +1179,7 @@ function renderMaintenanceChecklist() {
   const completed = selectedSection.tasks.filter((_, index) => state[index]?.done || state[index]?.na).length;
   const pendingPrevious = selectedLabel === 'Cada 40 horas' && !maintenanceIsComplete('Cada 20 horas');
   const complete = selectedSection.tasks.length > 0 && completed === selectedSection.tasks.length;
-  panel.innerHTML = `<div class="card-top"><div><h3>Lista de tareas · ${safeText(selectedSection.label)}</h3><p>${safeText(scheduleText(selectedSchedule))} Marca cada tarea o indica si no aplica.</p></div><div class="checklist-actions"><div class="checklist-select"><label for="checklistInterval">Intervalo</label><select id="checklistInterval">${availableSections.map(section => `<option value="${safeText(section.label)}" ${section.label === selectedLabel ? 'selected' : ''}>${safeText(section.label)}</option>`).join('')}</select></div><button class="quiet-button workshop-button" id="workshopModeButton" type="button">Cerrar modo taller</button><button class="quiet-button reset-maintenance-button" id="resetMaintenanceButton" type="button">Resetear mantenimiento</button></div></div>${pendingPrevious ? '<div class="maintenance-warning">La revisión de 20 horas todavía no está terminada. Puedes continuar con esta revisión, pero quedan tareas pendientes.</div>' : ''}${complete ? '<div class="maintenance-complete"><span>✓</span><strong>Mantenimiento realizado</strong><small>Todas las tareas están resueltas. Puedes cerrar la hoja.</small></div>' : ''}<div class="maintenance-session"><strong>Datos de esta revisión</strong><p class="session-help">Al cambiar las lecturas del marcador, las horas y kilómetros reales se calculan automáticamente. Puedes corregirlos.</p><div class="session-fields"><label class="session-date-field">Fecha<input id="sessionDate" type="date" value="${safeText(session.date)}" /></label><div class="reading-group marker-reading"><strong>Marcador</strong><span>Lo que indica el cuadro de la moto</span><label>Horas<input id="sessionHours" type="number" step="1" value="${safeText(session.markerHours)}" /></label><label>Kilómetros<input id="sessionKm" type="number" step="1" value="${safeText(session.markerKm)}" /></label></div><div class="reading-group real-reading"><strong>Uso real acumulado</strong><span>Se calcula automáticamente y se puede editar</span><label>Horas<input id="sessionRealHours" type="number" min="0" step="any" value="${safeText(session.realHours)}" /></label><label>Kilómetros<input id="sessionRealKm" type="number" min="0" step="any" value="${safeText(session.realKm)}" /></label></div><button class="quiet-button" id="saveSessionButton" type="button">Guardar datos</button></div></div><div class="checklist-progress">${completed} de ${selectedSection.tasks.length} tareas resueltas</div><div id="maintenanceTasks">${selectedSection.tasks.map((task, index) => { const itemState = state[index] || {}; return `<div class="maintenance-task ${itemState.done || itemState.na ? 'done' : ''}" data-task-index="${index}"><div class="task-controls"><label><input type="checkbox" data-task-action="done" ${itemState.done ? 'checked' : ''} /> Hecha</label><label><input type="checkbox" data-task-action="na" ${itemState.na ? 'checked' : ''} /> No aplica</label></div><div><strong>${safeText(task)}</strong><textarea data-task-action="note" rows="2" placeholder="Nota de esta tarea">${safeText(itemState.note || '')}</textarea></div></div>`; }).join('')}</div><div class="workshop-footer"><button class="workshop-button workshop-close-bottom" id="workshopModeButtonBottom" type="button">Cerrar modo taller</button></div>`;
+  panel.innerHTML = `<div class="card-top"><div><h3>Lista de tareas · ${safeText(selectedSection.label)}</h3><p>${safeText(scheduleText(selectedSchedule))} Marca cada tarea o indica si no aplica.</p></div><div class="checklist-actions"><div class="checklist-select"><label for="checklistInterval">Intervalo</label><select id="checklistInterval">${availableSections.map(section => `<option value="${safeText(section.label)}" ${section.label === selectedLabel ? 'selected' : ''}>${safeText(section.label)}</option>`).join('')}</select></div><button class="quiet-button workshop-button" id="workshopModeButton" type="button" data-tooltip="Guarda automáticamente los cambios y vuelve a la vista de mantenimiento.">Cerrar modo taller</button><button class="quiet-button reset-maintenance-button" id="resetMaintenanceButton" type="button" data-tooltip="Borra el avance y las notas de esta revisión para empezar de nuevo.">Resetear mantenimiento</button></div></div>${pendingPrevious ? '<div class="maintenance-warning">La revisión de 20 horas todavía no está terminada. Puedes continuar con esta revisión, pero quedan tareas pendientes.</div>' : ''}${complete ? '<div class="maintenance-complete"><span>✓</span><strong>Mantenimiento realizado</strong><small>Todas las tareas están resueltas. Puedes cerrar la hoja.</small></div>' : ''}<div class="maintenance-session"><strong>Datos de esta revisión</strong><p class="session-help">Al cambiar las lecturas del marcador, las horas y kilómetros reales se calculan automáticamente. Puedes corregirlos.</p><div class="session-fields"><label class="session-date-field">Fecha<input id="sessionDate" type="date" value="${safeText(session.date)}" /></label><div class="reading-group marker-reading"><strong>Marcador</strong><span>Lo que indica el cuadro de la moto</span><label>Horas<input id="sessionHours" type="number" step="1" value="${safeText(session.markerHours)}" /></label><label>Kilómetros<input id="sessionKm" type="number" step="1" value="${safeText(session.markerKm)}" /></label></div><div class="reading-group real-reading"><strong>Uso real acumulado</strong><span>Se calcula automáticamente y se puede editar</span><label>Horas<input id="sessionRealHours" type="number" min="0" step="any" value="${safeText(session.realHours)}" /></label><label>Kilómetros<input id="sessionRealKm" type="number" min="0" step="any" value="${safeText(session.realKm)}" /></label></div><button class="quiet-button" id="saveSessionButton" type="button">Guardar datos</button></div></div><div class="checklist-progress">${completed} de ${selectedSection.tasks.length} tareas resueltas</div><div id="maintenanceTasks">${selectedSection.tasks.map((task, index) => { const itemState = state[index] || {}; return `<div class="maintenance-task ${itemState.done || itemState.na ? 'done' : ''}" data-task-index="${index}"><div class="task-controls"><label><input type="checkbox" data-task-action="done" ${itemState.done ? 'checked' : ''} /> Hecha</label><label><input type="checkbox" data-task-action="na" ${itemState.na ? 'checked' : ''} /> No aplica</label></div><div><strong>${safeText(task)}</strong><textarea data-task-action="note" rows="2" placeholder="Nota de esta tarea">${safeText(itemState.note || '')}</textarea></div></div>`; }).join('')}</div><div class="maintenance-free-notes"><label for="maintenanceNotes">Notas adicionales</label><textarea id="maintenanceNotes" rows="4" placeholder="Anota aquí cualquier trabajo u observación que no esté en las tareas.">${safeText(state.notes || '')}</textarea><small>Estas notas se guardan con el mantenimiento y aparecen en el Libro de vida.</small></div><div class="workshop-footer"><button class="workshop-button workshop-close-bottom" id="workshopModeButtonBottom" type="button" data-tooltip="Guarda automáticamente los cambios y vuelve a la vista de mantenimiento.">Cerrar modo taller</button></div>`;
   document.getElementById('saveSessionButton').textContent = 'Guardar marcador y uso real';
   markSchedule(panel.querySelector('.card-top > div'), selectedSchedule);
   const realHoursInput = document.getElementById('sessionRealHours');
@@ -1063,6 +1214,13 @@ function renderMaintenanceChecklist() {
     panel.querySelector('.maintenance-complete').appendChild(nextButton);
   }
   const intervalSelect = document.getElementById('checklistInterval');
+  const maintenanceNotesInput = document.getElementById('maintenanceNotes');
+  maintenanceNotesInput.addEventListener('input', () => {
+    const nextState = readChecklistState(selectedSection.label);
+    nextState.notes = maintenanceNotesInput.value;
+    localStorage.setItem(checklistStateKey(selectedSection.label), JSON.stringify(nextState));
+    syncMaintenanceProgressEvent(selectedSection.label);
+  });
   panel.querySelectorAll('[data-task-index]').forEach(task => {
     const taskIndex = task.dataset.taskIndex;
     const taskState = state[taskIndex] || {};
