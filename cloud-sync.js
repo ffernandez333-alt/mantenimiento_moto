@@ -10,6 +10,10 @@
   let available = false;
   const localSnapshot = () => { try { return MotoBackup.create(storage).data; } catch { return {}; } };
   const hasApplicationData = data => Object.keys(data).some(key => key === 'motoProfiles' || key.startsWith('motoEvents:') || key === 'motoEvents');
+  const snapshotsMatch = (left, right) => {
+    const keys = new Set([...Object.keys(left || {}), ...Object.keys(right || {})]);
+    return [...keys].every(key => left?.[key] === right?.[key]);
+  };
   const schedulePush = () => {
     if (hydrating || !available) return;
     clearTimeout(timer);
@@ -26,7 +30,7 @@
       available = true;
       const remote = await response.json();
       const local = localSnapshot();
-      if (remote.data && Object.keys(remote.data).length) {
+      if (remote.data && Object.keys(remote.data).length && !snapshotsMatch(local, remote.data)) {
         Object.keys(local).forEach(key => removeItem(key));
         Object.entries(remote.data).forEach(([key, value]) => setItem(key, value));
         window.location.reload();
@@ -38,4 +42,5 @@
     hydrating = false;
   }
   hydrate();
+  window.setInterval(hydrate, 60000);
 })();
