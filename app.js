@@ -1069,6 +1069,20 @@ function maintenanceSession(sectionLabel) {
   localStorage.setItem(maintenanceSessionKey(sectionLabel), JSON.stringify(session));
   return session;
 }
+function applyMaintenanceReadingsToBike(session) {
+  if (!session) return;
+  const markerHours = MaintenanceSchedule.hours(session.markerHours);
+  const markerKm = MaintenanceSchedule.hours(session.markerKm);
+  const realHours = MaintenanceSchedule.hours(session.realHours);
+  const realKm = MaintenanceSchedule.hours(session.realKm);
+  if ([markerHours, markerKm, realHours, realKm].some(value => value === null)) return;
+  bikeData.markerHours = markerHours;
+  bikeData.markerKm = markerKm;
+  bikeData.realHours = realHours;
+  bikeData.realKm = realKm;
+  saveBikeProfiles();
+  updateBikeView();
+}
 function estimateRealReading(markerValue, sessionMarker, sessionReal, currentMarker, currentReal) {
   const marker = MaintenanceSchedule.hours(markerValue);
   const baseMarker = MaintenanceSchedule.hours(sessionMarker);
@@ -1156,6 +1170,7 @@ function syncCompletedMaintenanceEvent(sectionLabel) {
 function closeWorkshop(sectionLabel) {
   const progress = maintenanceProgress(sectionLabel);
   try {
+    applyMaintenanceReadingsToBike(readMaintenanceSession(sectionLabel));
     if (progress.total > 0 && progress.completed === progress.total) syncCompletedMaintenanceEvent(sectionLabel);
     else syncMaintenanceProgressEvent(sectionLabel);
   } catch (error) {
@@ -1263,6 +1278,7 @@ function renderMaintenanceChecklist() {
     if (values.some(value => value === null) || !date || date > todayISO()) { window.alert('Indica una fecha no futura y lecturas válidas, iguales o mayores que cero.'); return; }
     const sessionData = { ...maintenanceSession(selectedSection.label), date, markerHours: values[0], markerKm: values[1], realHours: values[2], realKm: values[3] };
     localStorage.setItem(maintenanceSessionKey(selectedSection.label), JSON.stringify(sessionData));
+    applyMaintenanceReadingsToBike(sessionData);
     syncCompletedMaintenanceEvent(selectedSection.label);
     renderMaintenanceChecklist();
   });
