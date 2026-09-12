@@ -160,7 +160,7 @@ function syncComponentDescription() {
   const name = select.value === '__custom__' ? document.getElementById('eventComponentCustom').value.trim() : select.value;
   if (!name) return;
   const description = document.getElementById('eventDescription');
-  if (!description.value.trim() || /^Sustitución de(?: componente)?/i.test(description.value.trim())) description.value = `Sustitución de ${name}`;
+  description.value = `Sustitución de ${name}`;
 }
 document.getElementById('eventComponent').addEventListener('change', () => { toggleMaintenanceParts(); syncComponentDescription(); });
 document.getElementById('eventComponentCustom').addEventListener('input', syncComponentDescription);
@@ -539,6 +539,7 @@ document.getElementById('timeline').addEventListener('click', event => {
 
 document.getElementById('eventForm').addEventListener('submit', async event => {
   event.preventDefault();
+  syncComponentDescription();
   const description = document.getElementById('eventDescription').value.trim();
   if (!description) return;
   const type = document.getElementById('eventType').value;
