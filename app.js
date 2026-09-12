@@ -627,12 +627,11 @@ function syncComponentsFromEvents() {
   componentRecords.forEach(record => {
     const changes = events.map((item, eventIndex) => ({ item, eventIndex })).filter(({ item }) => item.type === 'Sustitución de componente' && (item.componentChanges || [item.componentChange]).some(change => change?.name === record.name)).sort((a, b) => String(b.item.dateISO || '').localeCompare(String(a.item.dateISO || '')));
     if (!changes.length) {
-      if (record.lastChange) {
-        delete record.lastChange;
-        record.status = 'Pendiente de registrar';
-        record.tone = 'neutral';
-        record.detail = 'Último cambio eliminado del Libro de vida';
-      }
+      delete record.lastChange;
+      delete record.history;
+      record.status = 'Pendiente de registrar';
+      record.tone = 'neutral';
+      record.detail = 'Sin cambio registrado';
       return;
     }
     const latest = changes[0].item;
