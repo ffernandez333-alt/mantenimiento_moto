@@ -647,8 +647,9 @@ function renderComponents() {
   const lastChange = item => item.lastChange ? `${safeText(item.lastChange.date)} · ${safeText(item.lastChange.realHours || '—')} h · ${safeText(item.lastChange.realKm || '—')} km` : 'Sin cambio registrado';
   const nextChange = item => { const hours = Number(item.lastChange?.realHours); if (!Number.isFinite(hours) || !item.intervalHours) return item.intervalHours ? `${item.intervalHours} h teóricas` : 'Por estado'; return `${Math.round(hours + item.intervalHours).toLocaleString('es-ES')} h`; };
   const averageCost = item => { const values = (item.history || []).map(change => { const raw = String(change.cost || '').replace(/[^0-9,.-]/g, ''); return Number(raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw); }).filter(Number.isFinite); if (!values.length && item.catalogPrice == null) return 'Pendiente'; const total = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : Number(item.catalogPrice); return `${total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`; };
-  const sortedComponents = [...componentRecords].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es', { sensitivity: 'base' }));
-  grid.innerHTML = `<div class="component-table-scroll"><table class="component-table"><thead><tr><th scope="col">Componente</th><th scope="col">Último cambio</th><th scope="col">Próximo cambio teórico</th></tr></thead><tbody>${sortedComponents.map(item => `<tr><th scope="row"><strong>${safeText(item.name)}</strong><small>${safeText(item.category || 'Otros')}${item.reference ? ` · Ref. ${safeText(item.reference)}` : ''}</small></th><td>${lastChange(item)}</td><td>${nextChange(item)}</td></tr>`).join('')}</tbody></table></div><p class="component-source-note">Los cambios registrados en mantenimientos y eventos actualizan esta tabla.</p>`;
+  const sortedComponents = componentRecords.filter(item => item.lastChange || (item.history || []).length).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es', { sensitivity: 'base' }));
+  const table = sortedComponents.length ? `<div class="component-table-scroll"><table class="component-table"><thead><tr><th scope="col">Componente</th><th scope="col">Último cambio</th><th scope="col">Próximo cambio teórico</th></tr></thead><tbody>${sortedComponents.map(item => `<tr><th scope="row"><strong>${safeText(item.name)}</strong><small>${safeText(item.category || 'Otros')}${item.reference ? ` · Ref. ${safeText(item.reference)}` : ''}</small></th><td>${lastChange(item)}</td><td>${nextChange(item)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="component-empty-state">Todavía no hay cambios de componentes registrados en el Libro de vida.</div>';
+  grid.innerHTML = `${table}<p class="component-source-note">Solo se muestran componentes sustituidos o cambiados desde un evento.</p>`;
   grid.querySelectorAll('.component-thumbnail').forEach(image => image.addEventListener('error', () => { image.src = image.dataset.fallback; }, { once: true }));
 }
 function maintenanceSchedule(label) { return MaintenanceSchedule.calculate(events, label, bikeData.realHours, todayISO()); }
@@ -864,7 +865,7 @@ function renderAllBikeProfiles() {
   view.querySelector('.profile-section-heading p').textContent = `Moto seleccionada: ${bikeData.plate || activeBikeId}. Intervalos usados para generar avisos.`;
 }
 updateBikeView();
-renderComponents();
+syncComponentsFromEvents();
 function saveBikeProfiles() {
   const current = { ...bikeData, id: activeBikeId };
   const index = bikeProfiles.findIndex(profile => profile.id === activeBikeId);
