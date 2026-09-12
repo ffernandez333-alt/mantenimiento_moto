@@ -271,6 +271,26 @@ const defaultEvents = [
 const legacyEvents = JSON.parse(localStorage.getItem('motoEvents') || 'null');
 let events = JSON.parse(localStorage.getItem(bikeStorageKey('motoEvents')) || 'null') || (activeBikeId === 'moto-1' ? (legacyEvents || defaultEvents) : []);
 if (activeBikeId === 'moto-1' && !localStorage.getItem(bikeStorageKey('motoEvents'))) saveEvents();
+const ktmComponentImport = [
+  ['14/11/2025', '2025-11-14', 516, 12814, 'Motor de arranque', 'Montado Kit Pata de arranque Wallapop 100€'],
+  ['14/11/2025', '2025-11-14', 516, 12814, 'Aceite del cambio', 'Cambiado Aceite Cambio'],
+  ['14/11/2025', '2025-11-14', 516, 12814, 'Líquido refrigerante', 'Cambiado liquido refrigerante'],
+  ['14/11/2025', '2025-11-14', 516, 12814, 'Servicio de horquilla', 'Revision horquillas en DMX 280€. Petados los retenes'],
+  ['26/01/2026', '2026-01-26', 536, 13554, 'Líquido de embrague', 'Cambiado liquido embrague (purgando desde la maneta había abajo y tubo conectado al empujador)'],
+  ['26/01/2026', '2026-01-26', 536, 13554, 'Piñón', 'Cambiado Piñon 12 dientes OK del anterior cambio'],
+  ['13/03/2026', '2026-03-13', 556, 14000, 'Aceite del cambio', 'Cambiar Aceite Cambio'],
+  ['13/03/2026', '2026-03-13', 556, 14000, 'Filtro de combustible', 'Microfiltro gasolina'],
+  ['26/07/2026', '2026-07-26', 576, '', 'Rodamiento de rueda delantero', 'Cambiado rodamientos rueda delantera'],
+  ['26/07/2026', '2026-07-26', 576, '', 'Neumático delantero', 'Nueva caracasa delantera Hulk boy con mouse antiguo'],
+  ['26/07/2026', '2026-07-26', 576, '', 'Servicio de horquilla', 'Horquillas y amortiguador mantenimiento en DMX'],
+  ['26/07/2026', '2026-07-26', 576, '', 'Servicio de amortiguador', 'Horquillas y amortiguador mantenimiento en DMX'],
+  ['26/07/2026', '2026-07-26', 576, '', 'Filtro del depósito de combustible', 'Cambiado filtro gasolina deposito'],
+  ['26/07/2026', '2026-07-26', 576, '', 'Cilindro', 'Mandamos Cilindro a BS para Nicasilar. Desmontamos todo menos espigas 185€+25€ +IVA'],
+  ['26/07/2026', '2026-07-26', 576, '', 'Pistón', 'Comprar pistón Vertex EXC250 23630A 66,34'],
+  ['26/07/2026', '2026-07-26', 576, '', 'Segmentos', 'Piston 66.36. Juego Aros = 0,57 (max 0,4). Piston OK, nuevos segmentos.'],
+  ['26/07/2026', '2026-07-26', 576, '', 'Rodamiento de agujas', 'Comprar rodamiento de agujas KTM 54430034000 -> Jaula de agujas 18x22x19,8 KTM EXC 250 Athena']
+];
+if (!localStorage.getItem(bikeStorageKey('ktmComponentImport2026'))) setTimeout(() => { const imported = ktmComponentImport.map(([date, dateISO, realHours, realKm, name, notes]) => ({ type: 'Sustitución de componente', description: `Sustitución de ${name}`, date: formatDate(dateISO), dateISO, hours: '', km: '', realHours, realKm, componentChange: { name, reference: '' }, componentChanges: [{ name, reference: '' }], attachments: [], cost: '', notes: `Transcripción del documento: ${notes}` })); events = [...imported, ...events]; saveEvents(); localStorage.setItem(bikeStorageKey('ktmComponentImport2026'), '1'); syncComponentsFromEvents(); renderTimeline(); updateBikeView(); }, 2500);
 let sortDirection = localStorage.getItem('motoSortDirection') || 'desc';
 let filterType = 'all';
 let filterYear = 'all';
