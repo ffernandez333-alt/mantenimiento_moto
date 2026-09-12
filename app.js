@@ -118,8 +118,9 @@ document.getElementById('eventType').closest('label').after(maintenanceParts);
 const componentCatalog = ['Cadena', 'Corona', 'Piñón', 'Pastillas de freno delanteras', 'Pastillas de freno traseras', 'Líquido de frenos', 'Líquido de embrague', 'Cámara delantera', 'Cámara trasera', 'Mousse delantero', 'Mousse trasero', 'Aceite del cambio', 'Bujía', 'Líquido refrigerante', 'Fibra del escape', 'Pistón', 'Segmentos', 'Biela', 'Filtro de aire', 'Servicio de horquilla', 'Servicio de amortiguador', 'Tamiz de combustible', 'Filtro del depósito de combustible', 'Guía de cadena', 'Embrague', 'Disco de freno delantero', 'Disco de freno trasero', 'Neumático delantero', 'Neumático trasero', 'Rodamiento de rueda delantero', 'Rodamiento de rueda trasero', 'Filtro de combustible', 'Pipa de bujía', 'Cilindro', 'Caja de cambios', 'Bomba de aceite', 'Batería', 'Cojinetes de dirección', 'Cojinetes de basculante', 'Radios', 'Silencioso', 'Distribución de escape', 'Motor de arranque'];
 const componentChangeField = document.createElement('fieldset');
 componentChangeField.className = 'component-change-field';
-componentChangeField.innerHTML = `<legend>Componente que se va a cambiar</legend><p class="component-change-intro">Selecciona la pieza y anota la referencia del recambio para dejar el cambio identificado.</p><label class="component-primary-label">Nombre del componente<select id="eventComponent">${[...componentCatalog].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' })).map(component => `<option value="${safeText(component)}">${safeText(component)}</option>`).join('')}<option value="__custom__">Otro componente…</option></select></label><div class="component-change-details"><label>Marca o referencia<input id="eventComponentReference" placeholder="Ej. KTM 54810011000" /></label><label class="custom-component-label" hidden>Nombre del componente nuevo<input id="eventComponentCustom" placeholder="Ej. Protector de basculante" /></label></div><small class="component-change-note">El cambio se añadirá al Libro de vida y actualizará la pestaña Componentes.</small>`;
+componentChangeField.innerHTML = `<legend>Componentes que se van a cambiar</legend><p class="component-change-intro">Selecciona un componente y pulsa + para añadir otro al mismo cambio.</p><div id="componentChangeRows"><label class="component-primary-label">Nombre del componente<select id="eventComponent" data-component-select>${[...componentCatalog].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' })).map(component => `<option value="${safeText(component)}">${safeText(component)}</option>`).join('')}<option value="__custom__">Otro componente…</option></select></label></div><button type="button" class="quiet-button add-component-row">＋ Añadir otro componente</button><div class="component-change-details"><label>Marca o referencia<input id="eventComponentReference" placeholder="Ej. KTM 54810011000" /></label><label class="custom-component-label" hidden>Nombre del componente nuevo<input id="eventComponentCustom" placeholder="Ej. KTM 54810011000" /></label></div><small class="component-change-note">Todos se guardarán con la misma fecha y lecturas.</small>`;
 maintenanceParts.after(componentChangeField);
+componentChangeField.querySelector('.add-component-row').addEventListener('click', () => { const first = componentChangeField.querySelector('[data-component-select]'); const clone = first.cloneNode(true); clone.removeAttribute('id'); clone.value = componentCatalog[0]; clone.dataset.componentSelect = ''; const label = document.createElement('label'); label.className = 'component-primary-label'; label.textContent = 'Otro componente'; label.appendChild(clone); document.getElementById('componentChangeRows').appendChild(label); clone.addEventListener('change', syncComponentDescription); });
 const addComponentInEvent = document.createElement('button');
 addComponentInEvent.type = 'button';
 addComponentInEvent.className = 'quiet-button add-component-in-event';
@@ -152,12 +153,13 @@ function toggleMaintenanceParts() {
   const type = document.getElementById('eventType').value;
   maintenanceParts.hidden = type !== 'Mantenimiento';
   componentChangeField.hidden = type !== 'Sustitución de componente';
-  document.querySelector('.custom-component-label').hidden = document.getElementById('eventComponent').value !== '__custom__';
+  document.querySelector('.custom-component-label').hidden = ![...document.getElementById('eventComponent').selectedOptions].some(option => option.value === '__custom__');
 }
 function syncComponentDescription() {
   if (document.getElementById('eventType').value !== 'Sustitución de componente') return;
   const select = document.getElementById('eventComponent');
-  const name = select.value === '__custom__' ? document.getElementById('eventComponentCustom').value.trim() : select.value;
+  const selected = [...document.querySelectorAll('#componentChangeRows [data-component-select]')].map(input => input.value).filter(value => value !== '__custom__');
+  const name = selected.length ? selected.join(', ') : document.getElementById('eventComponentCustom').value.trim();
   if (!name) return;
   const description = document.getElementById('eventDescription');
   description.value = `Sustitución de ${name}`;
@@ -182,6 +184,7 @@ function openModal() {
   document.getElementById('eventRealKm').value = Math.round(Number(bikeData.realKm));
   maintenanceParts.querySelectorAll('input').forEach(input => { input.checked = false; });
   document.getElementById('eventComponent').selectedIndex = 0;
+  document.querySelectorAll('#componentChangeRows .component-primary-label:not(:first-child)').forEach(row => row.remove());
   document.getElementById('eventComponentReference').value = '';
   document.getElementById('eventComponentCustom').value = '';
   renderEventAttachmentDraft();
@@ -209,7 +212,7 @@ if (addComponentButton) {
   addComponentButton.addEventListener('click', () => {
     openModal();
     generalEventType.value = 'Sustitución de componente';
-    document.getElementById('eventComponent').value = '__custom__';
+  [...document.getElementById('eventComponent').options].forEach(option => { option.selected = false; });
     document.getElementById('eventComponentCustom').value = '';
     document.getElementById('eventDescription').value = 'Sustitución de componente';
     toggleMaintenanceParts();
@@ -294,7 +297,7 @@ function realHoursFor(item) {
   return noteMatch ? noteMatch[1].replace(',', '.') : item.hours;
 }
 function eventTitle(item) {
-  const title = item.type === 'Mantenimiento' ? `${item.description} (${realHoursFor(item) ? wholeReading(realHoursFor(item)) : '—'} h reales)` : item.type === 'Sustitución de componente' && item.componentChange?.name ? `${item.description} · ${item.componentChange.name}` : item.description;
+  const title = item.type === 'Mantenimiento' ? `${item.description} (${realHoursFor(item) ? wholeReading(realHoursFor(item)) : '—'} h reales)` : item.type === 'Sustitución de componente' && (item.componentChanges?.length || item.componentChange?.name) ? `${item.description} · ${(item.componentChanges || [item.componentChange]).map(change => change.name).join(', ')}` : item.description;
   return safeText(title);
 }
 function isPistonEvent(item) { return (item.maintenanceParts || []).includes('Pistón') || /cambio pist[oó]n|pist[oó]n\s+[a-c]\b|nuevos segmentos|motor abierto|revisi[oó]n pist[oó]n\/cilindro/i.test(`${item.description} ${item.notes || ''}`); }
@@ -520,10 +523,11 @@ document.getElementById('timeline').addEventListener('click', event => {
   document.getElementById('eventType').value = item.type;
   toggleMaintenanceParts();
   maintenanceParts.querySelectorAll('input').forEach(input => { input.checked = (item.maintenanceParts || []).includes(input.value); });
-  const savedComponentName = item.componentChange?.name || componentCatalog[0];
-  document.getElementById('eventComponent').value = componentCatalog.includes(savedComponentName) ? savedComponentName : '__custom__';
-  document.getElementById('eventComponentReference').value = item.componentChange?.reference || '';
-  document.getElementById('eventComponentCustom').value = componentCatalog.includes(savedComponentName) ? '' : savedComponentName;
+  const savedChanges = item.componentChanges || (item.componentChange ? [item.componentChange] : []);
+  const savedComponentName = savedChanges[0]?.name || componentCatalog[0];
+  [...document.getElementById('eventComponent').options].forEach(option => { option.selected = savedChanges.some(change => change.name === option.value); });
+  document.getElementById('eventComponentReference').value = savedChanges[0]?.reference || '';
+  document.getElementById('eventComponentCustom').value = savedComponentName && !componentCatalog.includes(savedComponentName) ? savedComponentName : '';
   toggleMaintenanceParts();
   document.getElementById('eventDescription').value = item.description;
   document.getElementById('eventHours').value = item.hours || '';
@@ -558,15 +562,19 @@ document.getElementById('eventForm').addEventListener('submit', async event => {
   const actualKm = Number(bikeData.realKm).toLocaleString('es-ES');
   const selectedParts = [...maintenanceParts.querySelectorAll('input:checked')].map(input => input.value);
   const partsNote = type === 'Mantenimiento' && selectedParts.length ? `Componentes intervenidos: ${selectedParts.join(', ')}.` : '';
-  const selectedComponentName = document.getElementById('eventComponent').value === '__custom__' ? document.getElementById('eventComponentCustom').value.trim() : document.getElementById('eventComponent').value;
-  if (type === 'Sustitución de componente' && !selectedComponentName) return;
-  const componentChange = type === 'Sustitución de componente' ? { name: selectedComponentName, reference: document.getElementById('eventComponentReference').value.trim() } : null;
-  const componentNote = componentChange ? `Componente sustituido: ${componentChange.name}${componentChange.reference ? ` (${componentChange.reference})` : ''}.` : '';
+  const selectedNames = [...document.querySelectorAll('#componentChangeRows [data-component-select]')].map(input => input.value).filter(value => value !== '__custom__');
+  const customName = document.getElementById('eventComponentCustom').value.trim();
+  if (customName) selectedNames.push(customName);
+  if (type === 'Sustitución de componente' && !selectedNames.length) return;
+  const reference = document.getElementById('eventComponentReference').value.trim();
+  const componentChanges = type === 'Sustitución de componente' ? selectedNames.map(name => ({ name, reference })) : [];
+  const componentChange = componentChanges[0] || null;
+  const componentNote = componentChanges.length ? `Componentes sustituidos: ${componentChanges.map(change => `${change.name}${change.reference ? ` (${change.reference})` : ''}`).join(', ')}.` : '';
   const markerNote = type === 'Cambio de marcador' ? `Marcador actualizado a ${Number.isFinite(visibleHours) ? visibleHours : bikeData.markerHours} h / ${Number.isFinite(visibleKm) ? visibleKm : bikeData.markerKm} km. Uso real acumulado: ${actualHours} h / ${actualKm} km.` : '';
   const selectedDate = document.getElementById('eventDate').value || todayISO();
-  const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: document.getElementById('eventRealHours').value, realKm: document.getElementById('eventRealKm').value, maintenanceParts: selectedParts, componentChange, attachments: eventAttachmentDraft, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), partsNote, componentNote, markerNote].filter(Boolean).join(' ') };
+  const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: document.getElementById('eventRealHours').value, realKm: document.getElementById('eventRealKm').value, maintenanceParts: selectedParts, componentChange, componentChanges, attachments: eventAttachmentDraft, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), partsNote, componentNote, markerNote].filter(Boolean).join(' ') };
   if (editingIndex === null) events.unshift(editedEvent); else events[editingIndex] = editedEvent;
-  if (componentChange) updateComponentFromEvent(componentChange, editedEvent);
+  componentChanges.forEach(change => updateComponentFromEvent(change, editedEvent));
   syncComponentsFromEvents();
   saveEvents();
   renderTimeline();
@@ -614,7 +622,7 @@ function updateComponentFromEvent(change, eventRecord) {
 }
 function syncComponentsFromEvents() {
   componentRecords.forEach(record => {
-    const changes = events.filter(item => item.type === 'Sustitución de componente' && item.componentChange?.name === record.name).sort((a, b) => String(b.dateISO || '').localeCompare(String(a.dateISO || '')));
+    const changes = events.filter(item => item.type === 'Sustitución de componente' && (item.componentChanges || [item.componentChange]).some(change => change?.name === record.name)).sort((a, b) => String(b.dateISO || '').localeCompare(String(a.dateISO || '')));
     if (!changes.length) {
       if (record.lastChange) {
         delete record.lastChange;
@@ -628,8 +636,9 @@ function syncComponentsFromEvents() {
     record.status = 'Sustituido recientemente';
     record.tone = 'good';
     record.detail = `${latest.date} · ${latest.realHours || latest.hours || '—'} h · ${latest.realKm || latest.km || '—'} km`;
-    record.lastChange = { date: latest.date, dateISO: latest.dateISO, realHours: latest.realHours, realKm: latest.realKm, cost: latest.cost || '', reference: latest.componentChange.reference || '' };
-    record.history = changes.map(change => ({ date: change.date, dateISO: change.dateISO, realHours: change.realHours || change.hours, realKm: change.realKm || change.km, cost: change.cost || '', reference: change.componentChange.reference || '' }));
+    const latestPart = (latest.componentChanges || [latest.componentChange]).find(change => change?.name === record.name) || {};
+    record.lastChange = { date: latest.date, dateISO: latest.dateISO, realHours: latest.realHours, realKm: latest.realKm, cost: latest.cost || '', reference: latestPart.reference || '' };
+    record.history = changes.map(change => { const part = (change.componentChanges || [change.componentChange]).find(component => component?.name === record.name) || {}; return { date: change.date, dateISO: change.dateISO, realHours: change.realHours || change.hours, realKm: change.realKm || change.km, cost: change.cost || '', reference: part.reference || '' }; });
   });
   saveComponents();
   renderComponents();
