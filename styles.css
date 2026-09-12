@@ -118,3 +118,4 @@
   .app-shell.sidebar-collapsed .sidebar>*{opacity:1;pointer-events:auto}
 }
 .component-next-edit{border:1px solid #f1c8a8;border-radius:5px;background:#fff8f1;color:var(--orange);font:700 9px 'DM Sans';padding:4px 6px;cursor:pointer;white-space:nowrap}.component-next-edit:hover{background:var(--orange-soft)}
+.component-history-toggle{border:0;background:transparent;color:var(--orange);font-size:14px;width:20px;padding:0;margin-right:4px;cursor:pointer}.component-history-toggle:disabled{visibility:hidden;cursor:default}
