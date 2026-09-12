@@ -597,7 +597,7 @@ function saveComponents() { localStorage.setItem(componentStorageKey(), JSON.str
 function nextChangePlanText(item) {
   const plan = item.nextChangePlan;
   if (!plan?.value) return '';
-  const labels = { hours: 'h reales', date: '' };
+  const labels = { hours: 'h reales', km: 'km reales', date: '' };
   return `Programado: ${safeText(plan.value)}${labels[plan.mode] ? ` ${labels[plan.mode]}` : ''}`;
 }
 function updateComponentFromEvent(change, eventRecord) {
@@ -664,18 +664,19 @@ document.addEventListener('click', event => {
   if (!button) return;
   const record = componentRecords.find(item => item.name === button.dataset.componentName);
   if (!record) return;
-  const modeInput = window.prompt('Programar próximo cambio por:\n1 = horas reales\n2 = fecha', record.nextChangePlan?.mode === 'date' ? '2' : '1');
-  if (modeInput === null) return;
-  const mode = modeInput.trim() === '2' ? 'date' : modeInput.trim() === '1' ? 'hours' : null;
-  if (!mode) { window.alert('Indica 1 para horas o 2 para fecha.'); return; }
   const current = record.nextChangePlan?.value || '';
-  const value = window.prompt(mode === 'hours' ? 'Horas reales del próximo cambio:' : 'Fecha del próximo cambio (DD/MM/AA):', current);
-  if (value === null || !value.trim()) return;
-  if (mode === 'hours' && (!Number.isFinite(Number(value)) || Number(value) < 0)) { window.alert('Indica un número de horas válido.'); return; }
-  if (mode === 'date' && !/^\d{2}\/\d{2}\/\d{2}$/.test(value.trim())) { window.alert('Indica la fecha con formato DD/MM/AA.'); return; }
-  record.nextChangePlan = { mode, value: value.trim() };
-  saveComponents();
-  renderComponents();
+  const backdrop = document.createElement('div');
+  backdrop.className = 'modal-backdrop';
+  backdrop.innerHTML = `<section class="modal component-plan-dialog" role="dialog" aria-modal="true"><button type="button" class="modal-close" aria-label="Cerrar">×</button><p class="eyebrow">Programación</p><h2>Próximo cambio</h2><p class="modal-subtitle">${safeText(record.name)}</p><label>Programar por<select data-plan-mode><option value="hours">Horas reales</option><option value="km">Kilómetros reales</option><option value="date">Fecha</option></select></label><label>Valor<input data-plan-value value="${safeText(current)}" placeholder="Horas, kilómetros o DD/MM/AA" /></label><div class="modal-actions"><button type="button" class="quiet-button" data-plan-cancel>Cancelar</button><button type="button" class="primary-button" data-plan-save>Guardar</button></div></section>`;
+  document.body.appendChild(backdrop);
+  const mode = backdrop.querySelector('[data-plan-mode]'); const input = backdrop.querySelector('[data-plan-value]');
+  if (record.nextChangePlan?.mode) mode.value = record.nextChangePlan.mode;
+  const updatePlaceholder = () => { input.placeholder = mode.value === 'date' ? 'DD/MM/AA' : mode.value === 'hours' ? 'Ej. 640' : 'Ej. 18.000'; };
+  mode.addEventListener('change', updatePlaceholder); updatePlaceholder(); input.focus();
+  const close = () => backdrop.remove();
+  backdrop.querySelector('[data-plan-cancel]').addEventListener('click', close); backdrop.querySelector('.modal-close').addEventListener('click', close);
+  backdrop.querySelector('[data-plan-save]').addEventListener('click', () => { const value = input.value.trim(); if (!value || (mode.value !== 'date' && (!Number.isFinite(Number(value)) || Number(value) < 0)) || (mode.value === 'date' && !/^\d{2}\/\d{2}\/\d{2}$/.test(value))) { window.alert(mode.value === 'date' ? 'Indica la fecha con formato DD/MM/AA.' : 'Indica un número válido.'); return; } record.nextChangePlan = { mode: mode.value, value }; saveComponents(); close(); renderComponents(); });
+  backdrop.addEventListener('click', event => { if (event.target === backdrop) close(); });
 });
 function maintenanceSchedule(label) { return MaintenanceSchedule.calculate(events, label, bikeData.realHours, todayISO()); }
 function scheduleText(schedule) {
