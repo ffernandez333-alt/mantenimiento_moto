@@ -123,3 +123,4 @@
 #view-componentes .component-table th[scope=row],#view-componentes .component-table th[scope=row] strong,#view-componentes .component-table th[scope=row] small{text-align:left}
 .component-heading-actions{display:flex;align-items:center;gap:10px}@media(max-width:600px){.component-heading-actions{width:100%;flex-wrap:wrap}.component-heading-actions .filter-button{flex:1;min-width:190px}}
 .component-sort-trigger{border:0;background:transparent;padding:0;color:inherit;font:inherit;font-weight:700;cursor:pointer;text-align:left}.component-sort-trigger span{color:#111;font-size:11px;margin-left:3px}.component-heading-actions #componentSort{display:none}
+#view-vida .maintenance-entry .activity-main p{display:none!important}
