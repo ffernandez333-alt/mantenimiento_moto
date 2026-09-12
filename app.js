@@ -58,14 +58,40 @@ let editingIndex = null;
 let eventAttachmentDraft = [];
 const attachmentAccept = 'image/*,video/*,.pdf,.doc,.docx,.txt';
 function attachmentId() { return `attachment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`; }
-function filesToAttachments(fileList) {
-  return Promise.all([...fileList].map(file => new Promise((resolve, reject) => {
-    if (file.size > 15 * 1024 * 1024) { window.alert(`El archivo ${file.name} supera el límite de 15 MB.`); resolve(null); return; }
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve({ id: attachmentId(), name: file.name, type: file.type || 'application/octet-stream', size: file.size, data: reader.result });
-    reader.onerror = reject;
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('No se pudo leer el archivo.'));
     reader.readAsDataURL(file);
-  }))).then(items => items.filter(Boolean));
+  });
+}
+function compressImage(file) {
+  if (!file.type?.startsWith('image/')) return readFileAsDataUrl(file).then(data => ({ data, type: file.type || 'application/octet-stream', size: file.size }));
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const source = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(source);
+      const maxSide = 1600;
+      const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+      canvas.height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+      canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+      const data = canvas.toDataURL('image/jpeg', .78);
+      resolve({ data, type: 'image/jpeg', size: Math.round(data.length * .75) });
+    };
+    image.onerror = () => { URL.revokeObjectURL(source); reject(new Error('No se pudo cargar la imagen.')); };
+    image.src = source;
+  });
+}
+function filesToAttachments(fileList) {
+  return Promise.all([...fileList].map(async file => {
+    if (file.size > 15 * 1024 * 1024) { window.alert(`El archivo ${file.name} supera el límite de 15 MB.`); return null; }
+    const prepared = await compressImage(file);
+    return { id: attachmentId(), name: file.name, type: prepared.type, size: prepared.size, data: prepared.data };
+  })).then(items => items.filter(Boolean));
 }
 function attachmentMarkup(attachments = [], className = 'event-attachments') {
   return `<div class="${className}">${attachments.map(file => file.type?.startsWith('image/') ? `<a class="attachment-thumbnail" href="${file.data}" target="_blank" rel="noopener" title="Abrir ${safeText(file.name)}"><img src="${file.data}" alt="${safeText(file.name)}" loading="lazy" /></a>` : `<a class="attachment-chip" href="${file.data}" download="${safeText(file.name)}" target="_blank" rel="noopener"><span>${file.type?.startsWith('video/') ? '▶' : '▤'}</span>${safeText(file.name)}</a>`).join('')}</div>`;
@@ -111,8 +137,17 @@ const eventAttachmentField = document.createElement('div');
 eventAttachmentField.className = 'attachment-field';
 eventAttachmentField.innerHTML = `<strong>Archivos adjuntos</strong><div class="attachment-pickers"><label class="attachment-picker">＋ Añadir fichero<input id="eventAttachments" type="file" accept="${attachmentAccept}" multiple /></label><label class="attachment-picker">◉ Usar cámara<input id="eventCamera" type="file" accept="image/*,video/*" capture="environment" /></label></div><small>Fotos, vídeos, PDF y otros documentos. Máximo 15 MB por archivo.</small><div id="eventAttachmentList" class="event-attachments"></div>`;
 document.querySelector('#eventForm .modal-actions')?.before(eventAttachmentField);
-document.getElementById('eventAttachments')?.addEventListener('change', async event => { eventAttachmentDraft.push(...await filesToAttachments(event.target.files)); renderEventAttachmentDraft(); event.target.value = ''; });
-document.getElementById('eventCamera')?.addEventListener('change', async event => { eventAttachmentDraft.push(...await filesToAttachments(event.target.files)); renderEventAttachmentDraft(); event.target.value = ''; });
+async function addEventFiles(input) {
+  try {
+    eventAttachmentDraft.push(...await filesToAttachments(input.files));
+    renderEventAttachmentDraft();
+  } catch (error) {
+    console.error('No se pudo preparar el archivo del evento.', error);
+    window.alert('No se ha podido cargar la foto. Prueba con otra imagen.');
+  } finally { input.value = ''; }
+}
+document.getElementById('eventAttachments')?.addEventListener('change', event => addEventFiles(event.target));
+document.getElementById('eventCamera')?.addEventListener('change', event => addEventFiles(event.target));
 function toggleMaintenanceParts() {
   const type = document.getElementById('eventType').value;
   maintenanceParts.hidden = type !== 'Mantenimiento';
@@ -891,7 +926,7 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
     const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)), itvNextDate: document.getElementById('formItvNext').value, insuranceExpiryDate: document.getElementById('formInsuranceExpiry').value };
     const file = document.getElementById('formPhoto').files[0];
     const finishNewBike = () => { saveBikeProfiles(); activeBikeId = newId; bikeProfiles.push(newProfile); localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles)); localStorage.setItem('activeBikeId', activeBikeId); events = []; saveEvents(); window.location.reload(); };
-    if (file) { const reader = new FileReader(); reader.onload = () => { newProfile.photo = reader.result; finishNewBike(); }; reader.readAsDataURL(file); } else finishNewBike();
+    if (file) { compressImage(file).then(prepared => { newProfile.photo = prepared.data; finishNewBike(); }).catch(() => window.alert('No se ha podido cargar la foto de la moto. Prueba con otra imagen.')); } else finishNewBike();
     return;
   }
   bikeData.brand = document.getElementById('formBrand').value.trim();
@@ -906,7 +941,7 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   bikeData.insuranceExpiryDate = document.getElementById('formInsuranceExpiry').value;
   const file = document.getElementById('formPhoto').files[0];
   const save = () => { saveBikeProfiles(); maintenancePlan = filterMaintenancePlan(JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null') || defaultMaintenancePlan); updateBikeView(); renderBikeSwitcher(); renderMaintenancePlan(); renderMaintenanceChecklist(); closeBikeModal(); };
-  if (file) { const reader = new FileReader(); reader.onload = () => { bikeData.photo = reader.result; save(); }; reader.readAsDataURL(file); } else save();
+  if (file) { compressImage(file).then(prepared => { bikeData.photo = prepared.data; save(); }).catch(() => window.alert('No se ha podido cargar la foto de la moto. Prueba con otra imagen.')); } else save();
 });
 
 const defaultMaintenancePlan = {
