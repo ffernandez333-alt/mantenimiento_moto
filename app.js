@@ -154,8 +154,17 @@ function toggleMaintenanceParts() {
   componentChangeField.hidden = type !== 'Sustitución de componente';
   document.querySelector('.custom-component-label').hidden = document.getElementById('eventComponent').value !== '__custom__';
 }
-document.getElementById('eventComponent').addEventListener('change', toggleMaintenanceParts);
-document.getElementById('eventType').addEventListener('change', toggleMaintenanceParts);
+function syncComponentDescription() {
+  if (document.getElementById('eventType').value !== 'Sustitución de componente') return;
+  const select = document.getElementById('eventComponent');
+  const name = select.value === '__custom__' ? document.getElementById('eventComponentCustom').value.trim() : select.value;
+  if (!name) return;
+  const description = document.getElementById('eventDescription');
+  if (!description.value.trim() || /^Sustitución de(?: componente)?/i.test(description.value.trim())) description.value = `Sustitución de ${name}`;
+}
+document.getElementById('eventComponent').addEventListener('change', () => { toggleMaintenanceParts(); syncComponentDescription(); });
+document.getElementById('eventComponentCustom').addEventListener('input', syncComponentDescription);
+document.getElementById('eventType').addEventListener('change', () => { toggleMaintenanceParts(); syncComponentDescription(); });
 toggleMaintenanceParts();
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function formatDate(dateValue) { return new Date(`${dateValue}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', ''); }
@@ -202,7 +211,7 @@ if (addComponentButton) {
     generalEventType.value = 'Sustitución de componente';
     document.getElementById('eventComponent').value = '__custom__';
     document.getElementById('eventComponentCustom').value = '';
-    document.getElementById('eventDescription').value = 'Instalación de componente';
+    document.getElementById('eventDescription').value = 'Sustitución de componente';
     toggleMaintenanceParts();
     document.getElementById('eventComponentCustom').focus();
   });
