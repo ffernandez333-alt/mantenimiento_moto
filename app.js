@@ -669,10 +669,10 @@ document.addEventListener('click', event => {
   const mode = modeInput.trim() === '2' ? 'date' : modeInput.trim() === '1' ? 'hours' : null;
   if (!mode) { window.alert('Indica 1 para horas o 2 para fecha.'); return; }
   const current = record.nextChangePlan?.value || '';
-  const value = window.prompt(mode === 'hours' ? 'Horas reales del próximo cambio:' : 'Fecha del próximo cambio (AAAA-MM-DD):', current);
+  const value = window.prompt(mode === 'hours' ? 'Horas reales del próximo cambio:' : 'Fecha del próximo cambio (DD/MM/AA):', current);
   if (value === null || !value.trim()) return;
   if (mode === 'hours' && (!Number.isFinite(Number(value)) || Number(value) < 0)) { window.alert('Indica un número de horas válido.'); return; }
-  if (mode === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) { window.alert('Indica la fecha con formato AAAA-MM-DD.'); return; }
+  if (mode === 'date' && !/^\d{2}\/\d{2}\/\d{2}$/.test(value.trim())) { window.alert('Indica la fecha con formato DD/MM/AA.'); return; }
   record.nextChangePlan = { mode, value: value.trim() };
   saveComponents();
   renderComponents();
