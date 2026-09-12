@@ -455,7 +455,7 @@ yearSelect.innerHTML = '<option value="all">Todos los años</option>' + years.ma
 yearSelect.addEventListener('change', () => { filterYear = yearSelect.value; renderTimeline(); });
 document.querySelector('.filters')?.prepend(yearSelect);
 
-document.getElementById('timeline').addEventListener('click', event => {
+document.addEventListener('click', event => {
   const deleteButton = event.target.closest('.event-delete');
   if (deleteButton) {
     const index = Number(deleteButton.dataset.eventIndex);
