@@ -672,7 +672,7 @@ function renderComponents() {
   grid.querySelectorAll('.component-thumbnail').forEach(image => image.addEventListener('error', () => { image.src = image.dataset.fallback; }, { once: true }));
 }
 document.addEventListener('click', event => { const toggle = event.target.closest('.component-history-toggle'); if (!toggle || toggle.disabled) return; const expanded = toggle.getAttribute('aria-expanded') === 'true'; toggle.setAttribute('aria-expanded', String(!expanded)); toggle.textContent = expanded ? '▸' : '▾'; document.querySelectorAll(`[data-component-parent="${toggle.dataset.componentGroup}"]`).forEach(row => { row.hidden = expanded; }); });
-document.addEventListener('click', event => { const button = event.target.closest('.component-record-edit,.component-record-delete'); if (!button) return; const target = document.querySelector(`#timeline .${button.classList.contains('component-record-edit') ? 'event-edit' : 'event-delete'}[data-event-index="${button.dataset.eventIndex}"]`); if (target) target.click(); else window.alert('Este registro ya no está disponible. Recarga la aplicación para actualizar la lista.'); });
+document.addEventListener('click', event => { const button = event.target.closest('.component-record-edit,.component-record-delete'); if (!button) return; const index = Number(button.dataset.eventIndex); const item = events[index]; if (!item) { window.alert('Este registro ya no está disponible. Recarga la aplicación para actualizar la lista.'); return; } if (button.classList.contains('component-record-delete')) { openDeleteConfirmation(`Sustitución de ${button.closest('tr')?.querySelector('th strong')?.textContent || 'componente'}`, () => { if (Array.isArray(item.componentChanges) && item.componentChanges.length > 1) { const componentName = button.closest('tr')?.querySelector('th strong')?.textContent?.trim(); item.componentChanges = item.componentChanges.filter(change => change.name !== componentName); item.componentChange = item.componentChanges[0] || null; } else events.splice(index, 1); saveEvents(); syncComponentsFromEvents(); renderTimeline(); renderUsageChart(); updateBikeView(); }); return; } showView('vida'); const target = document.querySelector(`#timeline .event-edit[data-event-index="${index}"]`); if (target) target.click(); else window.alert('Este registro ya no está disponible. Recarga la aplicación para actualizar la lista.'); });
 document.addEventListener('click', event => {
   const button = event.target.closest('.component-next-edit');
   if (!button) return;
@@ -1449,4 +1449,5 @@ const returnBikeView = sessionStorage.getItem('motoReturnView');
 if (returnBikeView && labels[returnBikeView]) showView(returnBikeView);
 else showView('motos');
 sessionStorage.removeItem('motoReturnView');
+
 
