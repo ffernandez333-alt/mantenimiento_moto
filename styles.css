@@ -117,3 +117,4 @@
   .app-shell.sidebar-collapsed .sidebar{width:242px;padding:25px 15px 18px;border-right:1px solid var(--line);overflow:visible}
   .app-shell.sidebar-collapsed .sidebar>*{opacity:1;pointer-events:auto}
 }
+.component-next-edit{border:1px solid #f1c8a8;border-radius:5px;background:#fff8f1;color:var(--orange);font:700 9px 'DM Sans';padding:4px 6px;cursor:pointer;white-space:nowrap}.component-next-edit:hover{background:var(--orange-soft)}

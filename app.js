@@ -594,6 +594,12 @@ const storedComponentRecords = JSON.parse(localStorage.getItem(componentStorageK
 let componentRecords = componentDefinitions.map(definition => ({ ...definition, ...(storedComponentRecords || []).find(item => item.name === definition.name) }));
 if (Array.isArray(storedComponentRecords)) storedComponentRecords.filter(item => !['Kit de transmisión', 'Neumáticos'].includes(item.name) && !componentRecords.some(record => record.name === item.name)).forEach(item => componentRecords.push(item));
 function saveComponents() { localStorage.setItem(componentStorageKey(), JSON.stringify(componentRecords)); }
+function nextChangePlanText(item) {
+  const plan = item.nextChangePlan;
+  if (!plan?.value) return '';
+  const labels = { hours: 'h reales', date: '' };
+  return `Programado: ${safeText(plan.value)}${labels[plan.mode] ? ` ${labels[plan.mode]}` : ''}`;
+}
 function updateComponentFromEvent(change, eventRecord) {
   if (!change?.name) return;
   let record = componentRecords.find(item => item.name === change.name);
@@ -646,13 +652,31 @@ function renderComponents() {
   const fallbackFor = item => `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="52" viewBox="0 0 64 52"><rect width="64" height="52" rx="9" fill="#fff1e6"/><text x="32" y="34" text-anchor="middle" font-size="24" fill="#ef7620">${iconFor(item)}</text></svg>`)}`;
   const imageFor = item => sourceFor(item);
   const lastChange = item => item.lastChange ? `${safeText(item.lastChange.date)} · ${safeText(item.lastChange.realHours || '—')} h · ${safeText(item.lastChange.realKm || '—')} km` : 'Sin cambio registrado';
-  const nextChange = item => { const hours = Number(item.lastChange?.realHours); if (!Number.isFinite(hours) || !item.intervalHours) return item.intervalHours ? `${item.intervalHours} h teóricas` : 'Por estado'; return `${Math.round(hours + item.intervalHours).toLocaleString('es-ES')} h`; };
+  const nextChange = item => { const plan = nextChangePlanText(item); if (plan) return plan; const hours = Number(item.lastChange?.realHours); if (!Number.isFinite(hours) || !item.intervalHours) return item.intervalHours ? `${item.intervalHours} h teóricas` : 'Por estado'; return `${Math.round(hours + item.intervalHours).toLocaleString('es-ES')} h`; };
   const averageCost = item => { const values = (item.history || []).map(change => { const raw = String(change.cost || '').replace(/[^0-9,.-]/g, ''); return Number(raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw); }).filter(Number.isFinite); if (!values.length && item.catalogPrice == null) return 'Pendiente'; const total = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : Number(item.catalogPrice); return `${total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`; };
   const sortedComponents = componentRecords.filter(item => item.lastChange || (item.history || []).length).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'es', { sensitivity: 'base' }));
-  const table = sortedComponents.length ? `<div class="component-table-scroll"><table class="component-table"><thead><tr><th scope="col">Componente</th><th scope="col">Cambio realizado</th><th scope="col">Próximo cambio teórico</th></tr></thead><tbody>${sortedComponents.map(item => { const history = (item.history?.length ? item.history : [item.lastChange]).filter(Boolean).sort((a, b) => String(b.dateISO || '').localeCompare(String(a.dateISO || ''))); return `<tr class="component-group-row"><th scope="row"><strong>${safeText(item.name)}</strong><small>${safeText(item.category || 'Otros')}${item.reference ? ` · Ref. ${safeText(item.reference)}` : ''}</small></th><td>${lastChange(item)}</td><td>${nextChange(item)}</td></tr>${history.slice(1).map(change => `<tr class="component-history-row"><th scope="row"><span>↳ ${safeText(item.name)}</span></th><td>${safeText(change.date || 'Sin fecha')} · ${safeText(change.realHours || '—')} h · ${safeText(change.realKm || '—')} km</td><td>—</td></tr>`).join('')}`; }).join('')}</tbody></table></div>` : '<div class="component-empty-state">Todavía no hay cambios de componentes registrados en el Libro de vida.</div>';
+  const table = sortedComponents.length ? `<div class="component-table-scroll"><table class="component-table"><thead><tr><th scope="col">Componente</th><th scope="col">Cambio realizado</th><th scope="col">Próximo cambio teórico</th></tr></thead><tbody>${sortedComponents.map(item => { const history = (item.history?.length ? item.history : [item.lastChange]).filter(Boolean).sort((a, b) => String(b.dateISO || '').localeCompare(String(a.dateISO || ''))); return `<tr class="component-group-row"><th scope="row"><strong>${safeText(item.name)}</strong><small>${safeText(item.category || 'Otros')}${item.reference ? ` · Ref. ${safeText(item.reference)}` : ''}</small></th><td>${lastChange(item)}</td><td><span>${nextChange(item)}</span> <button type="button" class="component-next-edit" data-component-name="${safeText(item.name)}">Editar</button></td></tr>${history.slice(1).map(change => `<tr class="component-history-row"><th scope="row"><span>↳ ${safeText(item.name)}</span></th><td>${safeText(change.date || 'Sin fecha')} · ${safeText(change.realHours || '—')} h · ${safeText(change.realKm || '—')} km</td><td>—</td></tr>`).join('')}`; }).join('')}</tbody></table></div>` : '<div class="component-empty-state">Todavía no hay cambios de componentes registrados en el Libro de vida.</div>';
   grid.innerHTML = `${table}<p class="component-source-note">Solo se muestran componentes sustituidos o cambiados desde un evento.</p>`;
   grid.querySelectorAll('.component-thumbnail').forEach(image => image.addEventListener('error', () => { image.src = image.dataset.fallback; }, { once: true }));
 }
+document.addEventListener('click', event => {
+  const button = event.target.closest('.component-next-edit');
+  if (!button) return;
+  const record = componentRecords.find(item => item.name === button.dataset.componentName);
+  if (!record) return;
+  const modeInput = window.prompt('Programar próximo cambio por:\n1 = horas reales\n2 = fecha', record.nextChangePlan?.mode === 'date' ? '2' : '1');
+  if (modeInput === null) return;
+  const mode = modeInput.trim() === '2' ? 'date' : modeInput.trim() === '1' ? 'hours' : null;
+  if (!mode) { window.alert('Indica 1 para horas o 2 para fecha.'); return; }
+  const current = record.nextChangePlan?.value || '';
+  const value = window.prompt(mode === 'hours' ? 'Horas reales del próximo cambio:' : 'Fecha del próximo cambio (AAAA-MM-DD):', current);
+  if (value === null || !value.trim()) return;
+  if (mode === 'hours' && (!Number.isFinite(Number(value)) || Number(value) < 0)) { window.alert('Indica un número de horas válido.'); return; }
+  if (mode === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) { window.alert('Indica la fecha con formato AAAA-MM-DD.'); return; }
+  record.nextChangePlan = { mode, value: value.trim() };
+  saveComponents();
+  renderComponents();
+});
 function maintenanceSchedule(label) { return MaintenanceSchedule.calculate(events, label, bikeData.realHours, todayISO()); }
 function scheduleText(schedule) {
   const format = value => Number(value).toLocaleString('es-ES', { maximumFractionDigits: 3 });
