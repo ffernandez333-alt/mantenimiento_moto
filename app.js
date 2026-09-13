@@ -442,7 +442,7 @@ async function exportMaintenancePdf() {
   doc.setFillColor(...orange); doc.roundedRect(margin, y, pageWidth - margin * 2, 28, 4, 4, 'F');
   text('INFORME DE MANTENIMIENTO', margin + 7, y + 10, 9, [255, 255, 255], 'bold');
   text(`${bikeData.brand} ${bikeData.model}`, margin + 7, y + 19, 18, [255, 255, 255], 'bold');
-  text(`Año ${bikeData.year} · ${bikeData.plate || 'Sin matrícula'}`, pageWidth - margin - 7, y + 18, 9, [255, 255, 255], 'normal');
+  text(`Año ${bikeData.year}`, pageWidth - margin - 7, y + 18, 9, [255, 255, 255], 'normal');
   y += 38;
   text('Ficha de la moto', margin, y, 13, ink, 'bold'); y += 7;
   doc.setDrawColor(...line); doc.roundedRect(margin, y, pageWidth - margin * 2, 28, 3, 3, 'S');
