@@ -1217,6 +1217,19 @@ function refreshMaintenanceLifeEvents() {
     if (maintenanceIsComplete(section.label)) syncCompletedMaintenanceEvent(section.label);
     else syncMaintenanceProgressEvent(section.label);
   });
+  const seen = new Map();
+  const duplicateIndexes = [];
+  events.forEach((item, index) => {
+    if (!item.maintenanceInterval) return;
+    const key = `${item.maintenanceInterval}|${item.dateISO || ''}|${item.realHours || ''}|${item.realKm || ''}`;
+    const previousIndex = seen.get(key);
+    if (previousIndex === undefined) { seen.set(key, index); return; }
+    const previous = events[previousIndex];
+    const previousScore = previous.maintenanceStatus === 'completed' ? 2 : 1;
+    const currentScore = item.maintenanceStatus === 'completed' ? 2 : 1;
+    if (currentScore > previousScore) { duplicateIndexes.push(previousIndex); seen.set(key, index); } else duplicateIndexes.push(index);
+  });
+  if (duplicateIndexes.length) { events = events.filter((_, index) => !duplicateIndexes.includes(index)); saveEvents(); }
 }
 function syncMaintenanceProgressEvent(sectionLabel) {
   const section = maintenancePlan?.sections?.find(item => item.label === sectionLabel);
