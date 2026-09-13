@@ -350,7 +350,14 @@ function renderUsageChart() {
 function renderTimeline() {
   const timeline = document.getElementById('timeline');
   if (!timeline) return;
-  const orderedEvents = events.map((item, index) => ({ item, index })).filter(({ item }) => (filterType === 'all' || item.type === filterType) && (filterYear === 'all' || String(item.dateISO || '').startsWith(filterYear))).sort((a, b) => { const result = String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')); return sortDirection === 'desc' ? -result : result; });
+  const generatedMaintenanceKeys = new Set(events.filter(item => item?.maintenanceEventId).map(item => `${item.dateISO || ''}|${String(item.description || '').replace(/\s*\([^)]*reales\)$/, '')}`));
+  const orderedEvents = events.map((item, index) => ({ item, index })).filter(({ item }) => {
+    if (item?.type === 'Mantenimiento' && !item.maintenanceEventId) {
+      const legacyKey = `${item.dateISO || ''}|${String(item.description || '')}`;
+      if (generatedMaintenanceKeys.has(legacyKey)) return false;
+    }
+    return (filterType === 'all' || item.type === filterType) && (filterYear === 'all' || String(item.dateISO || '').startsWith(filterYear));
+  }).sort((a, b) => { const result = String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')); return sortDirection === 'desc' ? -result : result; });
   timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + orderedEvents.map(({ item, index }) => `<div class="timeline-event ${item.type === 'Mantenimiento' ? 'maintenance-entry' : ''}"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${eventTitle(item)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes && item.type !== "Mantenimiento" && !item.maintenanceInterval ? `<p>${safeText(item.notes)}</p>` : ""}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button><button class="event-delete" data-event-index="${index}" aria-label="Eliminar evento" title="Eliminar evento">🗑</button></div></div>`).join('');
   timeline.querySelectorAll('.timeline-event').forEach((node, timelineIndex) => {
     const item = orderedEvents[timelineIndex]?.item;
