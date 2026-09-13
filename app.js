@@ -4,7 +4,7 @@ const breadcrumb = document.getElementById('breadcrumbCurrent');
 const sidebar = document.getElementById('sidebar');
 document.addEventListener('change', event => { if (event.target.id === 'componentSort' && typeof renderComponents === 'function') { localStorage.setItem(bikeStorageKey('componentSort'), event.target.value); renderComponents(); } });
 
-const labels = { hoy: 'Mis motos', dashboard: 'Mis motos', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', documentos: 'Documentos y gastos', tecnico: 'Banco técnico' };
+const labels = { hoy: 'Mis motos', dashboard: 'Mis motos', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', tecnico: 'Banco técnico' };
 const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908, itvNextDate: '2028-07-08', insuranceExpiryDate: '2026-10-16' };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
@@ -952,7 +952,7 @@ function saveBikeProfiles() {
 function renderBikeSwitcher() {
   const switcher = document.querySelector('.bike-switcher');
   if (!switcher) return;
-  const sections = [{ view: 'vida', label: 'Libro de vida', icon: '↗', tooltip: 'Consulta el historial de salidas, mantenimientos y documentos.' }, { view: 'mantenimiento', label: 'Mantenimiento', icon: '⌁', tooltip: 'Inicia una revisión y completa sus tareas.' }, { view: 'componentes', label: 'Componentes', icon: '◫', tooltip: 'Consulta el estado y la vida útil de los componentes.' }, { view: 'documentos', label: 'Documentos y gastos', icon: '□', tooltip: 'Guarda y consulta documentos, facturas y gastos.' }];
+  const sections = [{ view: 'vida', label: 'Libro de vida', icon: '↗', tooltip: 'Consulta el historial de salidas, mantenimientos y documentos.' }, { view: 'mantenimiento', label: 'Mantenimiento', icon: '⌁', tooltip: 'Inicia una revisión y completa sus tareas.' }, { view: 'componentes', label: 'Componentes', icon: '◫', tooltip: 'Consulta el estado y la vida útil de los componentes.' }];
   switcher.innerHTML = `<div class="bike-list-heading">Mis motos</div><div class="bike-tree" aria-label="Mis motos">${bikeProfiles.map(profile => `<div class="bike-tree-item"><button type="button" class="bike-list-item ${profile.id === activeBikeId ? 'active' : ''}" aria-pressed="${profile.id === activeBikeId}" data-bike-id="${safeText(profile.id)}"><img src="${profilePhoto(profile)}" alt="" /><span><strong>${safeText(`${profile.brand} ${profile.model}`)}</strong><small>${safeText(`${profile.year} · ${profile.plate || profile.id}`)}</small></span><b aria-hidden="true">${profile.id === activeBikeId ? '⌄' : '›'}</b></button>${profile.id === activeBikeId ? `<div class="bike-section-list">${sections.map(section => `<button type="button" class="bike-section-item" data-section-view="${section.view}" data-tooltip="${section.tooltip}"><span>${section.icon}</span>${section.label}</button>`).join('')}</div>` : ''}</div>`).join('')}</div><button type="button" class="sidebar-add-bike" id="addBikeSidebar"><span>＋</span> Añadir moto</button>`;
   switcher.querySelectorAll('.bike-list-item').forEach(button => button.addEventListener('click', () => selectBike(button.dataset.bikeId)));
   switcher.querySelectorAll('.bike-section-item').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); showView(button.dataset.sectionView); }));
@@ -1501,4 +1501,5 @@ sessionStorage.removeItem('motoReturnView');
 
 
 document.getElementById('componentSort')?.addEventListener('change', event => { localStorage.setItem(bikeStorageKey('componentSort'), event.target.value); renderComponents(); }); const savedComponentSort = localStorage.getItem(bikeStorageKey('componentSort')); if (savedComponentSort && document.getElementById('componentSort')) document.getElementById('componentSort').value = savedComponentSort;
+
 
