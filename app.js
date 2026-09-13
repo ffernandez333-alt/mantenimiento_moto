@@ -352,7 +352,7 @@ function renderTimeline() {
   if (!timeline) return;
   const generatedMaintenanceKeys = new Set(events.filter(item => item?.maintenanceEventId).map(item => `${item.dateISO || ''}|${String(item.description || '').replace(/\s*\([^)]*reales\)$/, '')}`));
   const orderedEvents = events.map((item, index) => ({ item, index })).filter(({ item }) => {
-    if (item?.type === 'Mantenimiento' && !item.maintenanceEventId) {
+    if (!item?.maintenanceEventId) {
       const legacyKey = `${item.dateISO || ''}|${String(item.description || '')}`;
       if (generatedMaintenanceKeys.has(legacyKey)) return false;
     }
