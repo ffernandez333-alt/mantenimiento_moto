@@ -1,0 +1,11 @@
+{
+  "name": "Mis motos · KTM 250 EXC TPI",
+  "short_name": "Mis motos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f4f0",
+  "theme_color": "#f4f3ef",
+  "icons": [
+    {"src":"/assets/ktm-250-exc-tpi-2021.png","sizes":"1536x1024","type":"image/png","purpose":"any maskable"}
+  ]
+}
