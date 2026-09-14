@@ -611,6 +611,10 @@ document.getElementById('eventForm').addEventListener('submit', async event => {
     Object.assign(editedEvent, { maintenanceEventId: originalEvent.maintenanceEventId, maintenanceInterval: originalEvent.maintenanceInterval, maintenanceStatus: originalEvent.maintenanceStatus, maintenanceCompleted: originalEvent.maintenanceCompleted, maintenanceTotal: originalEvent.maintenanceTotal, maintenancePercent: originalEvent.maintenancePercent, maintenanceTaskSnapshot: originalEvent.maintenanceTaskSnapshot });
     const session = maintenanceSession(originalEvent.maintenanceInterval);
     session.date = selectedDate;
+    session.markerHours = document.getElementById('eventHours').value;
+    session.markerKm = document.getElementById('eventKm').value;
+    session.realHours = document.getElementById('eventRealHours').value;
+    session.realKm = document.getElementById('eventRealKm').value;
     session.eventId = originalEvent.maintenanceEventId;
     localStorage.setItem(maintenanceSessionKey(originalEvent.maintenanceInterval), JSON.stringify(session));
   }
