@@ -277,6 +277,8 @@ const defaultEvents = [
 ];
 const legacyEvents = JSON.parse(localStorage.getItem('motoEvents') || 'null');
 let events = JSON.parse(localStorage.getItem(bikeStorageKey('motoEvents')) || 'null') || (activeBikeId === 'moto-1' ? (legacyEvents || defaultEvents) : []);
+const migratedMaintenanceEvents = events.filter(item => item && item.type !== 'Mantenimiento' && /^(Revisión|Apertura de motor)/i.test(String(item.description || '')));
+if (migratedMaintenanceEvents.length) { migratedMaintenanceEvents.forEach(item => { item.type = 'Mantenimiento'; }); localStorage.setItem(bikeStorageKey('motoEvents'), JSON.stringify(events)); }
 if (activeBikeId === 'moto-1' && !localStorage.getItem(bikeStorageKey('motoEvents'))) saveEvents();
 const ktmComponentImport = [
   ['14/11/2025', '2025-11-14', 516, 12814, 'Motor de arranque', 'Montado Kit Pata de arranque Wallapop 100€'],
