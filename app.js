@@ -4,7 +4,7 @@ const breadcrumb = document.getElementById('breadcrumbCurrent');
 const sidebar = document.getElementById('sidebar');
 document.addEventListener('change', event => { if (event.target.id === 'componentSort' && typeof renderComponents === 'function') { localStorage.setItem(bikeStorageKey('componentSort'), event.target.value); renderComponents(); } });
 
-const labels = { hoy: 'Mis motos', dashboard: 'Mis motos', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', tecnico: 'Banco técnico' };
+const labels = { hoy: 'Mis motos', dashboard: 'Mis motos', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', uso: 'Horas vs km', tecnico: 'Banco técnico' };
 const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908, itvNextDate: '2028-07-08', insuranceExpiryDate: '2026-10-16' };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
@@ -23,6 +23,7 @@ function showView(view) {
   if (targetView === 'componentes' && typeof syncComponentsFromEvents === 'function') {
     try { syncComponentsFromEvents(); } catch (error) { console.error('No se pudo actualizar Componentes.', error); }
   }
+  if (targetView === 'uso' && typeof renderComponentUsageChart === 'function') renderComponentUsageChart();
   pages.forEach(page => page.classList.toggle('hidden', page.id !== `view-${targetView}`));
   sessionStorage.setItem('motoLastView', targetView);
   document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === targetView));
@@ -724,7 +725,7 @@ function renderComponentUsageChart() {
   const names = [...new Set(events.flatMap(item => item.type === 'Sustitución de componente' ? (item.componentChanges || [item.componentChange]).map(change => change?.name).filter(Boolean) : []))].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
   const selected = new Set(JSON.parse(localStorage.getItem(bikeStorageKey('componentChartSelection')) || '[]'));
   options.innerHTML = names.length ? names.map(name => `<label><input type="checkbox" value="${safeText(name)}" ${selected.has(name) ? 'checked' : ''} /> <span>${safeText(name)}</span></label>`).join('') : '<small>No hay cambios de componentes registrados.</small>';
-  const points = events.map(item => ({ item, hours: Number(item.realHours || item.hours), km: Number(item.realKm || item.km) })).filter(point => Number.isFinite(point.hours) && Number.isFinite(point.km) && point.hours >= 0 && point.km >= 0).sort((a, b) => String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')));
+  const points = events.filter(item => item.type === 'Mantenimiento').map(item => ({ item, hours: Number(item.realHours || item.hours), km: Number(item.realKm || item.km) })).filter(point => Number.isFinite(point.hours) && Number.isFinite(point.km) && point.hours >= 0 && point.km >= 0).sort((a, b) => String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')));
   const empty = chart.parentElement.querySelector('.component-chart-empty');
   if (points.length < 2) { chart.innerHTML = ''; if (empty) empty.hidden = false; return; }
   if (empty) empty.hidden = true;
@@ -732,7 +733,8 @@ function renderComponentUsageChart() {
   const x = km => 55 + (km / maxKm) * 610; const y = hours => 260 - (hours / maxHours) * 220;
   const path = points.map((point, index) => `${index ? 'L' : 'M'}${x(point.km).toFixed(1)} ${y(point.hours).toFixed(1)}`).join(' ');
   const selectedColors = ['#ef7620', '#8063b7', '#30956b', '#4a79c7', '#cf8b19', '#b85555'];
-  const markers = points.flatMap(point => { const changed = (point.item.componentChanges || [point.item.componentChange]).map(change => change?.name).filter(Boolean); return [...selected].filter(name => changed.includes(name)).map(name => `<circle cx="${x(point.km).toFixed(1)}" cy="${y(point.hours).toFixed(1)}" r="6" fill="#fff" stroke="${selectedColors[[...selected].indexOf(name) % selectedColors.length]}" stroke-width="3"><title>${safeText(name)} · ${safeText(point.item.date || '')} · ${point.hours} h · ${point.km} km</title></circle>`); }).join('');
+  const componentPoints = events.filter(item => item.type === 'Sustitución de componente').map(item => ({ item, hours: Number(item.realHours || item.hours), km: Number(item.realKm || item.km) })).filter(point => Number.isFinite(point.hours) && Number.isFinite(point.km) && point.hours >= 0 && point.km >= 0);
+  const markers = componentPoints.flatMap(point => { const changed = (point.item.componentChanges || [point.item.componentChange]).map(change => change?.name).filter(Boolean); return [...selected].filter(name => changed.includes(name)).map(name => `<circle cx="${x(point.km).toFixed(1)}" cy="${y(point.hours).toFixed(1)}" r="6" fill="#fff" stroke="${selectedColors[[...selected].indexOf(name) % selectedColors.length]}" stroke-width="3"><title>${safeText(name)} · ${safeText(point.item.date || '')} · ${point.hours} h · ${point.km} km</title></circle>`); }).join('');
   chart.innerHTML = `<line x1="55" y1="260" x2="670" y2="260" stroke="#d8d5cd"/><line x1="55" y1="260" x2="55" y2="35" stroke="#d8d5cd"/><path d="${path}" fill="none" stroke="#ef7620" stroke-width="3"/><g fill="#ef7620">${points.map(point => `<circle cx="${x(point.km).toFixed(1)}" cy="${y(point.hours).toFixed(1)}" r="3"/>`).join('')}</g>${markers}<text x="360" y="294" text-anchor="middle" fill="#82847f" font-size="11">Kilómetros reales</text><text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle" fill="#82847f" font-size="11">Horas reales</text><text x="55" y="278" fill="#82847f" font-size="10">0</text><text x="670" y="278" text-anchor="end" fill="#82847f" font-size="10">${Math.round(maxKm).toLocaleString('es-ES')} km</text><text x="45" y="40" text-anchor="end" fill="#82847f" font-size="10">${Math.round(maxHours)} h</text>`;
   options.querySelectorAll('input').forEach(input => input.addEventListener('change', () => { const values = [...options.querySelectorAll('input:checked')].map(field => field.value); localStorage.setItem(bikeStorageKey('componentChartSelection'), JSON.stringify(values)); renderComponentUsageChart(); }));
 }
