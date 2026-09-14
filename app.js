@@ -775,10 +775,10 @@ function renderComponentUsageChart() {
   if (points.length < 2) { chart.innerHTML = ''; if (empty) empty.hidden = false; return; }
   if (empty) empty.hidden = true;
   const rawMaxKm = Math.max(1, ...points.map(point => point.km)); const rawMaxHours = Math.max(1, ...points.map(point => point.hours));
-  const maxKm = Math.max(1000, Math.ceil(rawMaxKm / 1000) * 1000); const maxHours = Math.max(20, Math.ceil(rawMaxHours / 20) * 20);
+  const maxKm = Math.max(1000, Math.ceil(rawMaxKm / 1000) * 1000); const maxHours = Math.max(40, Math.ceil(rawMaxHours / 40) * 40);
   const x = km => 55 + (km / maxKm) * 610; const y = hours => 260 - (hours / maxHours) * 220;
   const kmTicks = Array.from({ length: Math.floor(maxKm / 1000) + 1 }, (_, index) => index * 1000);
-  const hourTicks = Array.from({ length: Math.floor(maxHours / 20) + 1 }, (_, index) => index * 20);
+  const hourTicks = Array.from({ length: Math.floor(maxHours / 40) + 1 }, (_, index) => index * 40);
   const grid = `${kmTicks.map(value => `<line x1="${x(value).toFixed(1)}" y1="35" x2="${x(value).toFixed(1)}" y2="260" stroke="#eee9df"/><text x="${x(value).toFixed(1)}" y="278" text-anchor="middle" fill="#82847f" font-size="10">${Math.round(value).toLocaleString('es-ES')}</text>`).join('')}${hourTicks.map(value => `<line x1="55" y1="${y(value).toFixed(1)}" x2="665" y2="${y(value).toFixed(1)}" stroke="#eee9df"/><text x="45" y="${(y(value) + 3).toFixed(1)}" text-anchor="end" fill="#82847f" font-size="10">${value}</text>`).join('')}`;
   const path = points.map((point, index) => `${index ? 'L' : 'M'}${x(point.km).toFixed(1)} ${y(point.hours).toFixed(1)}`).join(' ');
   const selectedColors = ['#ef7620', '#8063b7', '#30956b', '#4a79c7', '#cf8b19', '#b85555'];
