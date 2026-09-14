@@ -5,6 +5,20 @@ const sidebar = document.getElementById('sidebar');
 document.addEventListener('change', event => { if (event.target.id === 'componentSort' && typeof renderComponents === 'function') { localStorage.setItem(bikeStorageKey('componentSort'), event.target.value); renderComponents(); } });
 
 const labels = { hoy: 'Mis motos', dashboard: 'Mis motos', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', uso: 'Gráficos', tecnico: 'Banco técnico' };
+function ensureUsageView() {
+  const nav = document.querySelector('.nav');
+  if (nav && !nav.querySelector('[data-view="uso"]')) {
+    const label = document.createElement('p'); label.className = 'nav-label'; label.textContent = 'Análisis'; nav.append(label);
+    const button = document.createElement('button'); button.className = 'nav-item'; button.dataset.view = 'uso'; button.innerHTML = '<span class="nav-icon">▥</span>Gráficos'; button.addEventListener('click', () => showView('uso')); nav.append(button);
+  }
+  const main = document.querySelector('.main-content');
+  if (main && !document.getElementById('view-uso')) {
+    const page = document.createElement('div'); page.className = 'page hidden'; page.id = 'view-uso';
+    page.innerHTML = '<section class="page-heading"><div><p class="eyebrow">Análisis de uso</p><h1>Gráficos</h1><p class="subtitle">Evolución de horas, kilómetros y cambios de componentes.</p></div></section><section class="component-usage-panel panel"><div class="card-top"><div><h3>Horas frente a kilómetros</h3><p>Evolución basada únicamente en los mantenimientos registrados.</p></div></div><div class="component-usage-layout"><div class="component-usage-chart"><svg id="componentUsageChart" viewBox="0 0 700 300" role="img" aria-label="Gráfico de horas frente a kilómetros"></svg><p class="component-chart-empty" hidden>No hay suficientes registros con horas y kilómetros para dibujar el gráfico.</p></div><aside class="component-usage-filters"><strong>Resaltar componentes</strong><small>Selecciona ninguno, uno o varios.</small><div id="componentUsageOptions"></div></aside></div></section>';
+    main.insertBefore(page, main.querySelector('#view-tecnico') || null);
+  }
+}
+ensureUsageView();
 const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908, itvNextDate: '2028-07-08', insuranceExpiryDate: '2026-10-16' };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
