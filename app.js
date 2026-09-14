@@ -597,7 +597,7 @@ document.getElementById('eventForm').addEventListener('submit', async event => {
   syncComponentDescription();
   const description = document.getElementById('eventDescription').value.trim();
   if (!description) return;
-  const type = document.getElementById('eventType').value;
+  let type = document.getElementById('eventType').value;
   const visibleHours = Math.round(Number(document.getElementById('eventHours').value));
   const visibleKm = Math.round(Number(document.getElementById('eventKm').value));
   if (editingIndex === null && Number.isFinite(visibleHours) && document.getElementById('eventHours').value !== '') {
