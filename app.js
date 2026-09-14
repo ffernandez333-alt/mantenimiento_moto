@@ -277,7 +277,10 @@ const defaultEvents = [
 ];
 const legacyEvents = JSON.parse(localStorage.getItem('motoEvents') || 'null');
 let events = JSON.parse(localStorage.getItem(bikeStorageKey('motoEvents')) || 'null') || (activeBikeId === 'moto-1' ? (legacyEvents || defaultEvents) : []);
-const migratedMaintenanceEvents = events.filter(item => item && item.type !== 'Mantenimiento' && /^(Revisión|Apertura de motor)/i.test(String(item.description || '')));
+function isMaintenanceRecord(item) {
+  return Boolean(item?.maintenanceEventId) || /^(Revisión|Apertura de motor|Intervención ampliada|Comprobación después|Aceite de embrague y bufanda|Limpieza de manguera)/i.test(String(item?.description || '').trim());
+}
+const migratedMaintenanceEvents = events.filter(item => item && item.type !== 'Mantenimiento' && isMaintenanceRecord(item));
 if (migratedMaintenanceEvents.length) { migratedMaintenanceEvents.forEach(item => { item.type = 'Mantenimiento'; }); localStorage.setItem(bikeStorageKey('motoEvents'), JSON.stringify(events)); }
 if (activeBikeId === 'moto-1' && !localStorage.getItem(bikeStorageKey('motoEvents'))) saveEvents();
 const ktmComponentImport = [
@@ -624,7 +627,7 @@ document.getElementById('eventForm').addEventListener('submit', async event => {
   const markerNote = type === 'Cambio de marcador' ? `Marcador actualizado a ${Number.isFinite(visibleHours) ? visibleHours : bikeData.markerHours} h / ${Number.isFinite(visibleKm) ? visibleKm : bikeData.markerKm} km. Uso real acumulado: ${actualHours} h / ${actualKm} km.` : '';
   const selectedDate = document.getElementById('eventDate').value || todayISO();
   const originalEvent = editingIndex === null ? null : events[editingIndex];
-  if (originalEvent?.maintenanceEventId || (originalEvent?.type === 'Mantenimiento' && /^(Revisión|Apertura de motor)/i.test(String(originalEvent.description || '')))) type = 'Mantenimiento';
+  if (isMaintenanceRecord(originalEvent)) type = 'Mantenimiento';
   const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: document.getElementById('eventRealHours').value, realKm: document.getElementById('eventRealKm').value, maintenanceParts: selectedParts, componentChange, componentChanges, attachments: eventAttachmentDraft, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), partsNote, componentNote, markerNote].filter(Boolean).join(' ') };
   if (originalEvent?.maintenanceEventId) {
     Object.assign(editedEvent, { maintenanceEventId: originalEvent.maintenanceEventId, maintenanceInterval: originalEvent.maintenanceInterval, maintenanceStatus: originalEvent.maintenanceStatus, maintenanceCompleted: originalEvent.maintenanceCompleted, maintenanceTotal: originalEvent.maintenanceTotal, maintenancePercent: originalEvent.maintenancePercent, maintenanceTaskSnapshot: originalEvent.maintenanceTaskSnapshot });
