@@ -1244,7 +1244,8 @@ function syncMaintenanceProgressEvent(sectionLabel) {
   const progress = maintenanceProgress(sectionLabel);
   const freeNotes = String(readChecklistState(sectionLabel).notes || '').trim();
   const taskAttachments = section.tasks.flatMap((_, index) => readChecklistState(sectionLabel)[index]?.attachments || []);
-  const id = session.eventId || maintenanceEventId(sectionLabel);
+  const matchingEvent = !events.some(item => item.maintenanceEventId === session.eventId) ? events.find(item => item.maintenanceInterval === sectionLabel && item.realHours === session.realHours && item.realKm === session.realKm) : null;
+  const id = session.eventId || matchingEvent?.maintenanceEventId || maintenanceEventId(sectionLabel);
   const event = { maintenanceEventId: id, maintenanceInterval: sectionLabel, maintenanceStatus: maintenanceIsComplete(sectionLabel) ? 'completed' : 'in_progress', maintenanceCompleted: progress.completed, maintenanceTotal: progress.total, maintenancePercent: progress.percent, attachments: taskAttachments, type: 'Mantenimiento', description: `Revisión · ${sectionLabel}${maintenanceIsComplete(sectionLabel) ? '' : ' (en curso)'}`, date: formatDate(session.date || todayISO()), dateISO: session.date || todayISO(), hours: readingNumber(session.markerHours), km: readingNumber(session.markerKm), realHours: readingNumber(session.realHours), realKm: readingNumber(session.realKm), notes: [`Mantenimiento: ${progress.completed} de ${progress.total} tareas resueltas.`, freeNotes].filter(Boolean).join(' ') };
   const existingIndex = events.findIndex(item => item.maintenanceEventId === id);
   if (existingIndex >= 0) events[existingIndex] = { ...events[existingIndex], ...event };
@@ -1269,7 +1270,8 @@ function syncCompletedMaintenanceEvent(sectionLabel) {
   const taskAttachments = section.tasks.flatMap((_, index) => state[index]?.attachments || []);
   const taskNotes = section.tasks.map((task, index) => state[index]?.note ? `${task}: ${state[index].note}` : '').filter(Boolean).join(' · ');
   const freeNotes = String(state.notes || '').trim();
-  const id = session.eventId || maintenanceEventId(sectionLabel);
+  const matchingEvent = !events.some(item => item.maintenanceEventId === session.eventId) ? events.find(item => item.maintenanceInterval === sectionLabel && item.realHours === session.realHours && item.realKm === session.realKm) : null;
+  const id = session.eventId || matchingEvent?.maintenanceEventId || maintenanceEventId(sectionLabel);
   const completedDate = session.date || todayISO();
   const event = {
     maintenanceEventId: id,
