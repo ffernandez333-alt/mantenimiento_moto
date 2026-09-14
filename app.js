@@ -16,7 +16,7 @@ function saveEvents() { localStorage.setItem(bikeStorageKey('motoEvents'), JSON.
 
 function showView(view) {
   const targetView = view === 'hoy' || view === 'dashboard' ? 'motos' : view;
-  if (typeof workshopOpen !== 'undefined' && workshopOpen && targetView !== 'mantenimiento') return;
+  if ((typeof workshopOpen !== 'undefined' && workshopOpen || document.body.classList.contains('workshop-mode')) && targetView !== 'mantenimiento') return;
   if (view === 'vida' && typeof refreshMaintenanceLifeEvents === 'function') {
     try { refreshMaintenanceLifeEvents(); } catch (error) { console.error('No se pudo actualizar el Libro de vida.', error); }
   }
