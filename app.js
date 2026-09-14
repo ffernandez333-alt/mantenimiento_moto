@@ -24,6 +24,7 @@ function showView(view) {
     try { syncComponentsFromEvents(); } catch (error) { console.error('No se pudo actualizar Componentes.', error); }
   }
   pages.forEach(page => page.classList.toggle('hidden', page.id !== `view-${targetView}`));
+  sessionStorage.setItem('motoLastView', targetView);
   document.querySelectorAll('.nav-item[data-view]').forEach(item => item.classList.toggle('active', item.dataset.view === targetView));
   breadcrumb.textContent = labels[targetView] || 'Mis motos';
   sidebar.classList.remove('open');
@@ -1513,7 +1514,9 @@ document.getElementById('backupFile').addEventListener('change', async event => 
   } catch (error) { backupStatus.textContent = `No se ha podido restaurar la copia. ${error instanceof SyntaxError ? 'El archivo no contiene un JSON válido.' : error.message}`; }
 });
 const returnBikeView = sessionStorage.getItem('motoReturnView');
+const lastView = sessionStorage.getItem('motoLastView');
 if (returnBikeView && labels[returnBikeView]) showView(returnBikeView);
+else if (lastView && labels[lastView]) showView(lastView);
 else showView('motos');
 sessionStorage.removeItem('motoReturnView');
 
