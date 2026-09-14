@@ -33,7 +33,17 @@
       if (remote.data && Object.keys(remote.data).length && !snapshotsMatch(local, remote.data)) {
         Object.keys(local).forEach(key => removeItem(key));
         Object.entries(remote.data).forEach(([key, value]) => setItem(key, value));
-        window.location.reload();
+        const reloadKey = 'motoCloudSyncReloadAt';
+        const lastReload = Number(sessionStorage.getItem(reloadKey) || 0);
+        if (!lastReload || Date.now() - lastReload > 15000) {
+          sessionStorage.setItem(reloadKey, String(Date.now()));
+          window.location.reload();
+          return;
+        }
+        // Evita un ciclo de recargas si el código local y la copia remota
+        // están normalizando datos en momentos distintos.
+        hydrating = false;
+        schedulePush();
         return;
       } else if (hasApplicationData(local)) {
         await fetch(endpoint, { method: 'PUT', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data: local }) });
