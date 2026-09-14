@@ -634,7 +634,9 @@ document.getElementById('eventForm').addEventListener('submit', async event => {
   event.target.reset();
   editingIndex = null;
   eventAttachmentDraft = [];
-  showView(eventReturnView || 'vida');
+  const returnView = eventReturnView || 'vida';
+  if (returnView === 'componentes') renderComponents();
+  showView(returnView);
   eventReturnView = 'vida';
 });
 
