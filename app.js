@@ -368,7 +368,8 @@ function eventReadings(item) {
 }
 function realHoursFor(item) {
   if (item.realHours) return item.realHours;
-  const noteMatch = String(item.notes || '').match(/(\d+(?:[.,]\d+)?)\s*h(?: entre paréntesis)?/i);
+  const notes = String(item.notes || '');
+  const noteMatch = notes.match(/(?:\+\s*|entre paréntesis[^:]*:\s*|reales?\s*:\s*)(\d+(?:[.,]\d+)?)\s*h/i) || notes.match(/(\d+(?:[.,]\d+)?)\s*h\s*entre paréntesis/i);
   return noteMatch ? noteMatch[1].replace(',', '.') : item.hours;
 }
 function realKmFor(item) { return item.realKm || item.km; }
