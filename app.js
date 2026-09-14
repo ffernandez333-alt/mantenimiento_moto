@@ -299,7 +299,21 @@ const ktmComponentImport = [
   ['26/07/2026', '2026-07-26', 576, '', 'Segmentos', 'Piston 66.36. Juego Aros = 0,57 (max 0,4). Piston OK, nuevos segmentos.'],
   ['26/07/2026', '2026-07-26', 576, '', 'Rodamiento de agujas', 'Comprar rodamiento de agujas KTM 54430034000 -> Jaula de agujas 18x22x19,8 KTM EXC 250 Athena']
 ];
-if (!localStorage.getItem(bikeStorageKey('ktmComponentImport2026'))) setTimeout(() => { const imported = ktmComponentImport.map(([date, dateISO, realHours, realKm, name, notes]) => ({ type: 'Sustitución de componente', description: `Sustitución de ${name}`, date: formatDate(dateISO), dateISO, hours: '', km: '', realHours, realKm, componentChange: { name, reference: '' }, componentChanges: [{ name, reference: '' }], attachments: [], cost: '', notes: `Transcripción del documento: ${notes}` })); events = [...imported, ...events]; saveEvents(); localStorage.setItem(bikeStorageKey('ktmComponentImport2026'), '1'); syncComponentsFromEvents(); renderTimeline(); updateBikeView(); }, 2500);
+const componentImportKey = bikeStorageKey('ktmComponentImport2026');
+if (!localStorage.getItem(componentImportKey)) {
+  localStorage.setItem(componentImportKey, 'pending');
+  setTimeout(() => {
+    if (localStorage.getItem(componentImportKey) === '1') return;
+    const imported = ktmComponentImport.map(([date, dateISO, realHours, realKm, name, notes]) => ({ type: 'Sustitución de componente', description: `Sustitución de ${name}`, date: formatDate(dateISO), dateISO, hours: '', km: '', realHours, realKm, componentChange: { name, reference: '' }, componentChanges: [{ name, reference: '' }], attachments: [], cost: '', notes: `Transcripción del documento: ${notes}` }));
+    const existingKeys = new Set(events.filter(item => item.type === 'Sustitución de componente').map(item => `${item.dateISO}|${item.componentChange?.name || item.componentChanges?.[0]?.name || item.description}`));
+    events = [...imported.filter(item => !existingKeys.has(`${item.dateISO}|${item.componentChange.name}`)), ...events];
+    saveEvents();
+    localStorage.setItem(componentImportKey, '1');
+    syncComponentsFromEvents();
+    renderTimeline();
+    updateBikeView();
+  }, 2500);
+}
 let sortDirection = localStorage.getItem('motoSortDirection') || 'desc';
 let filterType = 'all';
 let filterYear = 'all';
