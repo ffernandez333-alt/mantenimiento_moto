@@ -752,11 +752,23 @@ function renderComponentUsageChart() {
   const chart = document.getElementById('componentUsageChart');
   const options = document.getElementById('componentUsageOptions');
   if (!chart || !options) return;
+  // Use exactly the same maintenance records that are visible in Libro de vida.
+  // Older imported records are hidden there when a generated workshop record
+  // already represents the same event; they must also be excluded here so the
+  // data table and graph cannot show duplicates.
+  const generatedMaintenanceKeys = new Set(events.filter(item => item?.maintenanceEventId).map(item => `${item.dateISO || ''}|${String(item.description || '').replace(/\s*\([^)]*reales\)$/, '')}`));
+  const visibleEvents = events.filter(item => {
+    if (!item?.maintenanceEventId) {
+      const legacyKey = `${item.dateISO || ''}|${String(item.description || '')}`;
+      if (generatedMaintenanceKeys.has(legacyKey)) return false;
+    }
+    return true;
+  });
   const names = [...new Set(events.flatMap(item => item.type === 'Sustitución de componente' ? (item.componentChanges || [item.componentChange]).map(change => change?.name).filter(Boolean) : []))].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }));
   const selected = new Set(JSON.parse(localStorage.getItem(bikeStorageKey('componentChartSelection')) || '[]'));
   options.innerHTML = names.length ? names.map(name => `<label><input type="checkbox" value="${safeText(name)}" ${selected.has(name) ? 'checked' : ''} /> <span>${safeText(name)}</span></label>`).join('') : '<small>No hay cambios de componentes registrados.</small>';
-  const points = events.filter(item => item.type === 'Mantenimiento').map(item => ({ item, hours: Number(realHoursFor(item)), km: Number(realKmFor(item)) })).filter(point => Number.isFinite(point.hours) && Number.isFinite(point.km) && point.hours >= 0 && point.km >= 0).sort((a, b) => String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')));
-  const maintenanceRows = events.map((item, eventIndex) => ({ item, eventIndex })).filter(({ item }) => item.type === 'Mantenimiento').sort((a, b) => String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')));
+  const points = visibleEvents.filter(item => item.type === 'Mantenimiento').map(item => ({ item, hours: Number(realHoursFor(item)), km: Number(realKmFor(item)) })).filter(point => Number.isFinite(point.hours) && Number.isFinite(point.km) && point.hours >= 0 && point.km >= 0).sort((a, b) => String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')));
+  const maintenanceRows = visibleEvents.map(item => ({ item, eventIndex: events.indexOf(item) })).filter(({ item }) => item.type === 'Mantenimiento').sort((a, b) => String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')));
   const dataTable = document.getElementById('componentUsageDataTable');
   if (dataTable) dataTable.innerHTML = maintenanceRows.length ? `<div class="component-usage-table-wrap"><table><thead><tr><th>Fecha</th><th>Mantenimiento</th><th>Horas reales</th><th>Km reales</th><th>Gráfico</th><th></th></tr></thead><tbody>${maintenanceRows.map(({ item, eventIndex }) => { const hours = realHoursFor(item); const km = realKmFor(item); const valid = Number.isFinite(Number(hours)) && Number.isFinite(Number(km)); return `<tr><td>${safeText(item.date || '')}</td><td>${safeText(item.description || '')}</td><td>${safeText(hours || '—')}</td><td>${safeText(km || '—')}</td><td><span class="chart-data-status ${valid ? 'included' : 'excluded'}">${valid ? 'Incluido' : 'Sin datos reales'}</span></td><td><button type="button" class="usage-event-edit" data-event-index="${eventIndex}">Editar</button></td></tr>`; }).join('')}</tbody></table></div>` : '<p class="component-chart-empty">No hay eventos de mantenimiento registrados.</p>';
   const empty = chart.parentElement.querySelector('.component-chart-empty');
