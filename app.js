@@ -605,7 +605,15 @@ document.getElementById('eventForm').addEventListener('submit', async event => {
   const componentNote = componentChanges.length ? `Componentes sustituidos: ${componentChanges.map(change => `${change.name}${change.reference ? ` (${change.reference})` : ''}`).join(', ')}.` : '';
   const markerNote = type === 'Cambio de marcador' ? `Marcador actualizado a ${Number.isFinite(visibleHours) ? visibleHours : bikeData.markerHours} h / ${Number.isFinite(visibleKm) ? visibleKm : bikeData.markerKm} km. Uso real acumulado: ${actualHours} h / ${actualKm} km.` : '';
   const selectedDate = document.getElementById('eventDate').value || todayISO();
+  const originalEvent = editingIndex === null ? null : events[editingIndex];
   const editedEvent = { type, description, date: formatDate(selectedDate), dateISO: selectedDate, hours: document.getElementById('eventHours').value, km: document.getElementById('eventKm').value, realHours: document.getElementById('eventRealHours').value, realKm: document.getElementById('eventRealKm').value, maintenanceParts: selectedParts, componentChange, componentChanges, attachments: eventAttachmentDraft, cost: document.getElementById('eventCost').value ? `${document.getElementById('eventCost').value} €` : '', notes: [document.getElementById('eventNotes').value.trim(), partsNote, componentNote, markerNote].filter(Boolean).join(' ') };
+  if (originalEvent?.maintenanceEventId) {
+    Object.assign(editedEvent, { maintenanceEventId: originalEvent.maintenanceEventId, maintenanceInterval: originalEvent.maintenanceInterval, maintenanceStatus: originalEvent.maintenanceStatus, maintenanceCompleted: originalEvent.maintenanceCompleted, maintenanceTotal: originalEvent.maintenanceTotal, maintenancePercent: originalEvent.maintenancePercent, maintenanceTaskSnapshot: originalEvent.maintenanceTaskSnapshot });
+    const session = maintenanceSession(originalEvent.maintenanceInterval);
+    session.date = selectedDate;
+    session.eventId = originalEvent.maintenanceEventId;
+    localStorage.setItem(maintenanceSessionKey(originalEvent.maintenanceInterval), JSON.stringify(session));
+  }
   const recordsToSave = editingIndex === null && componentChanges.length > 1
     ? componentChanges.map(change => ({ ...editedEvent, componentChange: change, componentChanges: [change], notes: [document.getElementById('eventNotes').value.trim(), partsNote, `Componente sustituido: ${change.name}${change.reference ? ` (${change.reference})` : ''}.`, markerNote].filter(Boolean).join(' ') }))
     : [editedEvent];
