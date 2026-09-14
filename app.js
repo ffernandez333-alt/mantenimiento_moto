@@ -477,7 +477,7 @@ document.querySelectorAll('.filters > .filter-button:not(.sort-events)').forEach
 const typeSelect = document.createElement('select');
 typeSelect.className = 'filter-button';
 typeSelect.setAttribute('aria-label', 'Filtrar por tipo');
-typeSelect.innerHTML = '<option value="all">Todos los eventos</option>' + [...new Set(events.map(item => item.type))].sort().map(type => `<option value="${safeText(type)}">${safeText(type)}</option>`).join('');
+typeSelect.innerHTML = '<option value="all">Todos los eventos</option>' + [...new Set(events.map(item => String(item.type || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')).map(type => `<option value="${safeText(type)}">${safeText(type)}</option>`).join('');
 typeSelect.addEventListener('change', () => { filterType = typeSelect.value; renderTimeline(); });
 document.querySelector('.filters')?.prepend(typeSelect);
 const yearSelect = document.createElement('select');
