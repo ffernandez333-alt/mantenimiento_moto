@@ -37,6 +37,20 @@ document.getElementById('mobileMenu').addEventListener('click', () => sidebar.cl
 
 const appShell = document.querySelector('.app-shell');
 const sidebarToggle = document.getElementById('sidebarToggle');
+const profileButton = document.querySelector('.top-actions .profile-mini');
+if (profileButton) {
+  profileButton.type = 'button';
+  profileButton.setAttribute('aria-haspopup', 'true');
+  profileButton.setAttribute('aria-expanded', 'false');
+  const profileMenu = document.createElement('div');
+  profileMenu.className = 'profile-menu hidden';
+  profileMenu.innerHTML = '<strong>Cuenta</strong><button type="button" class="profile-logout">Cerrar sesión</button>';
+  profileButton.closest('.top-actions')?.appendChild(profileMenu);
+  const closeProfileMenu = () => { profileMenu.classList.add('hidden'); profileButton.setAttribute('aria-expanded', 'false'); };
+  profileButton.addEventListener('click', event => { event.stopPropagation(); const open = profileMenu.classList.toggle('hidden'); profileButton.setAttribute('aria-expanded', String(!open)); });
+  profileMenu.addEventListener('click', event => { if (event.target.closest('.profile-logout')) { if (/pages\.dev$/.test(window.location.hostname)) window.location.href = '/cdn-cgi/access/logout'; else closeProfileMenu(); } });
+  document.addEventListener('click', event => { if (!profileMenu.contains(event.target) && event.target !== profileButton) closeProfileMenu(); });
+}
 function setSidebarCollapsed(collapsed, persist = true) {
   if (!appShell || !sidebarToggle) return;
   appShell.classList.toggle('sidebar-collapsed', collapsed);
