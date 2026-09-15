@@ -779,15 +779,27 @@ function renderComponentUsageChart() {
   const x = km => 55 + (km / maxKm) * 610; const y = hours => 260 - (hours / maxHours) * 220;
   const kmTicks = Array.from({ length: Math.floor(maxKm / 1000) + 1 }, (_, index) => index * 1000);
   const hourTicks = Array.from({ length: Math.floor(maxHours / 40) + 1 }, (_, index) => index * 40);
-  const timeStep = Math.max(1, Math.ceil(points.length / 6));
-  const timeTicks = points.filter((_, index) => index % timeStep === 0 || index === points.length - 1);
-  const timeLabel = item => { const date = String(item.dateISO || ''); return date.length >= 7 ? `${date.slice(5, 7)}/${date.slice(0, 4)}` : (item.date || ''); };
+  const datedPoints = points.filter(point => /^\d{4}-\d{2}-\d{2}$/.test(String(point.item.dateISO || '')));
+  const datePosition = date => { const target = Date.parse(`${date}T12:00:00`); return datedPoints.reduce((best, point) => Math.abs(Date.parse(`${point.item.dateISO}T12:00:00`) - target) < Math.abs(Date.parse(`${best.item.dateISO}T12:00:00`) - target) ? point : best, datedPoints[0]); };
+  const firstDate = datedPoints.length ? new Date(`${datedPoints[0].item.dateISO}T12:00:00`) : null;
+  const lastDate = datedPoints.length ? new Date(`${datedPoints[datedPoints.length - 1].item.dateISO}T12:00:00`) : null;
+  const monthTicks = [];
+  const yearLabels = [];
+  if (firstDate && lastDate) {
+    for (let cursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1); cursor <= lastDate; cursor.setMonth(cursor.getMonth() + 1)) {
+      const iso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-01`;
+      const point = datePosition(iso); if (!point) continue;
+      monthTicks.push(`<line x1="${x(point.km).toFixed(1)}" y1="260" x2="${x(point.km).toFixed(1)}" y2="266" stroke="#bdb7aa"/>`);
+      if (cursor.getMonth() === 0 || cursor.getTime() === new Date(firstDate.getFullYear(), firstDate.getMonth(), 1).getTime()) yearLabels.push(`<text x="${x(point.km).toFixed(1)}" y="295" text-anchor="middle" fill="#82847f" font-size="10">${cursor.getFullYear()}</text>`);
+    }
+  }
+  const timeScale = `${monthTicks.join('')}${yearLabels.join('')}`;
   const grid = `${kmTicks.map(value => `<line x1="${x(value).toFixed(1)}" y1="35" x2="${x(value).toFixed(1)}" y2="260" stroke="#eee9df"/><text x="${x(value).toFixed(1)}" y="278" text-anchor="middle" fill="#82847f" font-size="10">${Math.round(value).toLocaleString('es-ES')}</text>`).join('')}${hourTicks.map(value => `<line x1="55" y1="${y(value).toFixed(1)}" x2="665" y2="${y(value).toFixed(1)}" stroke="#eee9df"/><text x="45" y="${(y(value) + 3).toFixed(1)}" text-anchor="end" fill="#82847f" font-size="10">${value}</text>`).join('')}${timeTicks.map(point => `<text x="${x(point.km).toFixed(1)}" y="295" text-anchor="middle" fill="#82847f" font-size="9">${timeLabel(point.item)}</text>`).join('')}`;
   const path = points.map((point, index) => `${index ? 'L' : 'M'}${x(point.km).toFixed(1)} ${y(point.hours).toFixed(1)}`).join(' ');
   const selectedColors = ['#ef7620', '#8063b7', '#30956b', '#4a79c7', '#cf8b19', '#b85555'];
   const componentPoints = events.filter(item => item.type === 'Sustitución de componente').map(item => ({ item, hours: Number(item.realHours), km: Number(item.realKm) })).filter(point => Number.isFinite(point.hours) && Number.isFinite(point.km) && point.hours >= 0 && point.km >= 0);
   const markers = componentPoints.flatMap(point => { const changed = (point.item.componentChanges || [point.item.componentChange]).map(change => change?.name).filter(Boolean); return [...selected].filter(name => changed.includes(name)).map(name => `<circle cx="${x(point.km).toFixed(1)}" cy="${y(point.hours).toFixed(1)}" r="6" fill="#fff" stroke="${selectedColors[[...selected].indexOf(name) % selectedColors.length]}" stroke-width="3"><title>${safeText(name)} · ${safeText(point.item.date || '')} · ${point.hours} h · ${point.km} km</title></circle>`); }).join('');
-  chart.innerHTML = `${grid}<line x1="55" y1="260" x2="670" y2="260" stroke="#d8d5cd"/><line x1="55" y1="260" x2="55" y2="35" stroke="#d8d5cd"/><path d="${path}" fill="none" stroke="#ef7620" stroke-width="3"/><g fill="#ef7620">${points.map(point => `<circle cx="${x(point.km).toFixed(1)}" cy="${y(point.hours).toFixed(1)}" r="3"/>`).join('')}</g>${markers}<text x="360" y="316" text-anchor="middle" fill="#82847f" font-size="11">Kilómetros reales · Fecha</text><text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle" fill="#82847f" font-size="11">Horas reales</text>`;
+  chart.innerHTML = `${grid}<line x1="55" y1="260" x2="670" y2="260" stroke="#d8d5cd"/>${timeScale}<line x1="55" y1="260" x2="55" y2="35" stroke="#d8d5cd"/><path d="${path}" fill="none" stroke="#ef7620" stroke-width="3"/><g fill="#ef7620">${points.map(point => `<circle cx="${x(point.km).toFixed(1)}" cy="${y(point.hours).toFixed(1)}" r="3"/>`).join('')}</g>${markers}<text x="360" y="316" text-anchor="middle" fill="#82847f" font-size="11">Kilómetros reales · Tiempo</text><text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle" fill="#82847f" font-size="11">Horas reales</text>`;
   options.querySelectorAll('input').forEach(input => input.addEventListener('change', () => { const values = [...options.querySelectorAll('input:checked')].map(field => field.value); localStorage.setItem(bikeStorageKey('componentChartSelection'), JSON.stringify(values)); renderComponentUsageChart(); }));
 }
 function renderComponents() {
