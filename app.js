@@ -14,7 +14,7 @@ function ensureUsageView() {
   const main = document.querySelector('.main-content');
   if (main && !document.getElementById('view-uso')) {
     const page = document.createElement('div'); page.className = 'page hidden'; page.id = 'view-uso';
-    page.innerHTML = '<section class="page-heading"><div><p class="eyebrow">Análisis de uso</p><h1>Gráficos</h1><p class="subtitle">Evolución de horas, kilómetros y cambios de componentes.</p></div></section><section class="component-usage-panel panel"><div class="card-top"><div><h3>Horas frente a kilómetros</h3><p>Evolución basada únicamente en los mantenimientos registrados.</p></div></div><div class="component-usage-layout"><div class="component-usage-chart"><svg id="componentUsageChart" viewBox="0 0 700 330" role="img" aria-label="Gráfico de horas frente a kilómetros"></svg><p class="component-chart-empty" hidden>No hay suficientes registros con horas y kilómetros para dibujar el gráfico.</p></div><aside class="component-usage-filters"><strong>Resaltar componentes</strong><small>Selecciona ninguno, uno o varios.</small><div id="componentUsageOptions"></div></aside></div><div class="component-usage-data"><h3>Datos utilizados</h3><p>Solo eventos de mantenimiento. La curva usa las filas con horas y kilómetros reales.</p><div id="componentUsageDataTable"></div></div></section>';
+    page.innerHTML = '<section class="page-heading"><div><p class="eyebrow">Análisis de uso</p><h1>Gráficos</h1><p class="subtitle">Evolución de horas, kilómetros y cambios de componentes.</p></div></section><section class="component-usage-panel panel"><div class="card-top"><div><h3>Horas frente a kilómetros</h3><p>Evolución basada únicamente en los mantenimientos registrados.</p></div></div><div class="component-usage-layout"><div class="component-usage-chart"><div class="component-chart-controls"><button type="button" class="quiet-button" data-chart-zoom-out>−</button><button type="button" class="quiet-button" data-chart-zoom-in>＋</button><button type="button" class="quiet-button" data-chart-reset>Restablecer</button><small>Arrastra para desplazar · rueda para zoom</small></div><svg id="componentUsageChart" viewBox="0 0 700 330" role="img" aria-label="Gráfico de horas frente a kilómetros"></svg><p class="component-chart-empty" hidden>No hay suficientes registros con horas y kilómetros para dibujar el gráfico.</p></div><aside class="component-usage-filters"><strong>Resaltar componentes</strong><small>Selecciona ninguno, uno o varios.</small><div id="componentUsageOptions"></div></aside></div><div class="component-usage-data"><h3>Datos utilizados</h3><p>Solo eventos de mantenimiento. La curva usa las filas con horas y kilómetros reales.</p><div id="componentUsageDataTable"></div></div></section>';
     main.insertBefore(page, main.querySelector('#view-tecnico') || null);
   }
 }
@@ -764,6 +764,7 @@ function syncComponentsFromEvents() {
   saveComponents();
   renderComponents();
 }
+let usageChartView = { scale: 1, x: 0, y: 0 };
 function renderComponentUsageChart() {
   const chart = document.getElementById('componentUsageChart');
   const options = document.getElementById('componentUsageOptions');
@@ -816,6 +817,18 @@ function renderComponentUsageChart() {
   const componentPoints = events.filter(item => item.type === 'Sustitución de componente').map(item => ({ item, hours: Number(item.realHours), km: Number(item.realKm) })).filter(point => Number.isFinite(point.hours) && Number.isFinite(point.km) && point.hours >= 0 && point.km >= 0);
   const markers = componentPoints.flatMap(point => { const changed = (point.item.componentChanges || [point.item.componentChange]).map(change => change?.name).filter(Boolean); return [...selected].filter(name => changed.includes(name)).map(name => `<circle cx="${x(point.km).toFixed(1)}" cy="${y(point.hours).toFixed(1)}" r="6" fill="#fff" stroke="${selectedColors[[...selected].indexOf(name) % selectedColors.length]}" stroke-width="3"><title>${safeText(name)} · ${safeText(point.item.date || '')} · ${point.hours} h · ${point.km} km</title></circle>`); }).join('');
   chart.innerHTML = `${grid}<line x1="55" y1="260" x2="670" y2="260" stroke="#d8d5cd"/>${timeScale}<line x1="55" y1="260" x2="55" y2="35" stroke="#d8d5cd"/><path d="${path}" fill="none" stroke="#ef7620" stroke-width="3"/><g fill="#ef7620">${points.map(point => `<circle cx="${x(point.km).toFixed(1)}" cy="${y(point.hours).toFixed(1)}" r="3"/>`).join('')}</g>${markers}<text x="360" y="316" text-anchor="middle" fill="#82847f" font-size="11">Kilómetros reales · Tiempo</text><text x="14" y="150" transform="rotate(-90 14 150)" text-anchor="middle" fill="#82847f" font-size="11">Horas reales</text>`;
+  chart.style.transformOrigin = '50% 50%';
+  chart.style.transform = `translate(${usageChartView.x}px, ${usageChartView.y}px) scale(${usageChartView.scale})`;
+  const controls = chart.parentElement.querySelector('.component-chart-controls');
+  controls?.querySelector('[data-chart-zoom-in]')?.addEventListener('click', () => { usageChartView.scale = Math.min(4, usageChartView.scale * 1.25); renderComponentUsageChart(); });
+  controls?.querySelector('[data-chart-zoom-out]')?.addEventListener('click', () => { usageChartView.scale = Math.max(1, usageChartView.scale / 1.25); renderComponentUsageChart(); });
+  controls?.querySelector('[data-chart-reset]')?.addEventListener('click', () => { usageChartView = { scale: 1, x: 0, y: 0 }; renderComponentUsageChart(); });
+  let dragStart = null;
+  chart.onpointerdown = event => { dragStart = { x: event.clientX, y: event.clientY, panX: usageChartView.x, panY: usageChartView.y }; chart.setPointerCapture?.(event.pointerId); };
+  chart.onpointermove = event => { if (!dragStart) return; usageChartView.x = dragStart.panX + event.clientX - dragStart.x; usageChartView.y = dragStart.panY + event.clientY - dragStart.y; chart.style.transform = `translate(${usageChartView.x}px, ${usageChartView.y}px) scale(${usageChartView.scale})`; };
+  chart.onpointerup = () => { dragStart = null; };
+  chart.onpointercancel = () => { dragStart = null; };
+  chart.onwheel = event => { event.preventDefault(); usageChartView.scale = Math.max(1, Math.min(4, usageChartView.scale * (event.deltaY < 0 ? 1.1 : 0.9))); chart.style.transform = `translate(${usageChartView.x}px, ${usageChartView.y}px) scale(${usageChartView.scale})`; };
   const saveSelection = values => { localStorage.setItem(bikeStorageKey('componentChartSelection'), JSON.stringify(values)); renderComponentUsageChart(); };
   options.querySelector('[data-component-select-all]')?.addEventListener('click', () => saveSelection(names));
   options.querySelector('[data-component-select-none]')?.addEventListener('click', () => saveSelection([]));

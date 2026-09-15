@@ -134,3 +134,5 @@
 .component-usage-data{margin-top:24px;border-top:1px solid var(--line);padding-top:18px}.component-usage-data h3{font:600 14px 'Space Grotesk';margin:0 0 4px}.component-usage-data>p{font-size:11px;color:var(--muted);margin:0 0 12px}.component-usage-table-wrap{overflow:auto}.component-usage-table-wrap table{width:100%;border-collapse:collapse;font-size:11px}.component-usage-table-wrap th,.component-usage-table-wrap td{border-top:1px solid var(--line);padding:8px;text-align:left;vertical-align:top}.component-usage-table-wrap th{font-weight:700;color:var(--muted);white-space:nowrap}.chart-data-status{font-size:10px;font-weight:700}.chart-data-status.included{color:var(--green)}.chart-data-status.excluded{color:var(--amber)}
 
 .usage-event-edit{border:0;background:transparent;color:var(--orange);font:700 11px 'DM Sans';cursor:pointer;padding:3px 0}.usage-event-edit:hover{text-decoration:underline}
+
+.component-chart-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}.component-chart-controls .quiet-button{padding:4px 9px;font-size:11px}.component-chart-controls small{color:var(--muted);font-size:10px;margin-left:4px}
