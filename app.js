@@ -808,8 +808,8 @@ function renderComponentUsageChart() {
     for (let cursor = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1); cursor <= lastDate; cursor.setMonth(cursor.getMonth() + 1)) {
       const iso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-01`;
       const point = datePosition(iso); if (!point) continue;
-      monthTicks.push(`<line x1="${x(point.km).toFixed(1)}" y1="260" x2="${x(point.km).toFixed(1)}" y2="266" stroke="#bdb7aa"/>`);
-      if (cursor.getMonth() === 0 || cursor.getTime() === new Date(firstDate.getFullYear(), firstDate.getMonth(), 1).getTime()) yearLabels.push(`<text x="${x(point.km).toFixed(1)}" y="295" text-anchor="middle" fill="#82847f" font-size="10">${cursor.getFullYear()}</text>`);
+      monthTicks.push(`<line x1="${x(reverseAxes ? point.hours : point.km).toFixed(1)}" y1="260" x2="${x(point.km).toFixed(1)}" y2="266" stroke="#bdb7aa"/>`);
+      if (cursor.getMonth() === 0 || cursor.getTime() === new Date(firstDate.getFullYear(), firstDate.getMonth(), 1).getTime()) yearLabels.push(`<text x="${x(reverseAxes ? point.hours : point.km).toFixed(1)}" y="295" text-anchor="middle" fill="#82847f" font-size="10">${cursor.getFullYear()}</text>`);
     }
   }
   const timeScale = `${monthTicks.join('')}${yearLabels.join('')}`;
