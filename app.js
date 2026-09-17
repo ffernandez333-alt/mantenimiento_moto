@@ -356,6 +356,13 @@ if (!localStorage.getItem(correctedComponentImportKey)) {
   const imported = correctedComponentImport.map(item => ({ type: 'Sustitución de componente', description: `Sustitución de ${item.name}`, date: formatDate(item.dateISO), dateISO: item.dateISO, hours: item.markerHours ?? '', km: item.markerKm ?? '', realHours: item.realHours ?? '', realKm: item.realKm ?? '', componentChange: { name: item.name, reference: '' }, componentChanges: [{ name: item.name, reference: '' }], attachments: [], cost: '', notes: `Transcripción del documento: ${item.notes || ''}` }));
   events.push(...imported); saveEvents(); localStorage.setItem(correctedComponentImportKey, '1');
 }
+const componentReadingsRepairKey = bikeStorageKey('componentSpreadsheetImport20260917d');
+if (!localStorage.getItem(componentReadingsRepairKey)) {
+  const imported = correctedComponentImport.map(item => ({ type: 'Sustitución de componente', description: `Sustitución de ${item.name}`, date: formatDate(item.dateISO), dateISO: item.dateISO, hours: item.markerHours ?? '', km: item.markerKm ?? '', realHours: item.realHours ?? '', realKm: item.realKm ?? '', componentChange: { name: item.name, reference: '' }, componentChanges: [{ name: item.name, reference: '' }], attachments: [], cost: '', notes: `Transcripción del documento: ${item.notes || ''}` }));
+  localStorage.setItem(bikeStorageKey('componentEventsBackup20260917d'), JSON.stringify(events.filter(item => item.type === 'Sustitución de componente')));
+  events = [...events.filter(item => item.type !== 'Sustitución de componente'), ...imported];
+  saveEvents(); localStorage.setItem(componentReadingsRepairKey, '1');
+}
 const spreadsheetComponentImportKey = bikeStorageKey('componentSpreadsheetImport20260915');
 if (!localStorage.getItem(spreadsheetComponentImportKey) && !localStorage.getItem(correctedComponentImportKey)) {
   setTimeout(() => {

@@ -32,7 +32,7 @@
       const local = localSnapshot();
       // Una importación corregida de componentes tiene prioridad sobre una
       // copia remota antigua que aún no contiene las lecturas de marcador.
-      const correctedComponentKey = Object.keys(local).find(key => key.includes('componentSpreadsheetImport20260917c'));
+      const correctedComponentKey = Object.keys(local).find(key => key.includes('componentSpreadsheetImport20260917'));
       const remoteData = { ...(remote.data || {}) };
       if (correctedComponentKey) {
         Object.keys(local).filter(key => key.startsWith('motoEvents')).forEach(key => {
