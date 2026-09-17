@@ -647,10 +647,12 @@ document.addEventListener('click', event => {
   document.getElementById('eventComponentCustom').value = savedComponentName && !componentCatalog.includes(savedComponentName) ? savedComponentName : '';
   toggleMaintenanceParts();
   document.getElementById('eventDescription').value = item.description;
-  document.getElementById('eventHours').value = item.hours || '';
-  document.getElementById('eventKm').value = item.km || '';
-  document.getElementById('eventRealHours').value = item.realHours || item.hours || '';
-  document.getElementById('eventRealKm').value = item.realKm || item.km || '';
+  const correctedReading = typeof correctedComponentImport !== 'undefined' && item.type === 'Sustitución de componente'
+    ? correctedComponentImport.find(entry => entry.dateISO === item.dateISO && savedChanges.some(change => change.name === entry.name)) : null;
+  document.getElementById('eventHours').value = correctedReading?.markerHours ?? item.hours ?? '';
+  document.getElementById('eventKm').value = correctedReading?.markerKm ?? item.km ?? '';
+  document.getElementById('eventRealHours').value = correctedReading?.realHours ?? item.realHours ?? item.hours ?? '';
+  document.getElementById('eventRealKm').value = correctedReading?.realKm ?? item.realKm ?? item.km ?? '';
   document.getElementById('eventCost').value = (item.cost || '').replace(' €', '').replace(',', '.');
   document.getElementById('eventNotes').value = item.notes || '';
   eventAttachmentDraft = [...(item.attachments || [])];
