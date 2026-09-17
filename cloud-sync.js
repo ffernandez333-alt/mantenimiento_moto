@@ -30,9 +30,22 @@
       available = true;
       const remote = await response.json();
       const local = localSnapshot();
-      if (remote.data && Object.keys(remote.data).length && !snapshotsMatch(local, remote.data)) {
+      // Una importación corregida de componentes tiene prioridad sobre una
+      // copia remota antigua que aún no contiene las lecturas de marcador.
+      const correctedComponentKey = Object.keys(local).find(key => key.includes('componentSpreadsheetImport20260917c'));
+      const remoteData = { ...(remote.data || {}) };
+      if (correctedComponentKey) {
+        Object.keys(local).filter(key => key.startsWith('motoEvents')).forEach(key => {
+          try {
+            const localEvents = JSON.parse(local[key]); const remoteEvents = JSON.parse(remoteData[key] || '[]');
+            const componentEvents = localEvents.filter(item => item?.type === 'Sustitución de componente');
+            remoteData[key] = JSON.stringify([...remoteEvents.filter(item => item?.type !== 'Sustitución de componente'), ...componentEvents]);
+          } catch { /* Conserva la copia remota si el formato no es válido. */ }
+        });
+      }
+      if (remote.data && Object.keys(remote.data).length && !snapshotsMatch(local, remoteData)) {
         Object.keys(local).forEach(key => removeItem(key));
-        Object.entries(remote.data).forEach(([key, value]) => setItem(key, value));
+        Object.entries(remoteData).forEach(([key, value]) => setItem(key, value));
         const reloadKey = 'motoCloudSyncReloadAt';
         const lastReload = Number(sessionStorage.getItem(reloadKey) || 0);
         if (!lastReload || Date.now() - lastReload > 15000) {
