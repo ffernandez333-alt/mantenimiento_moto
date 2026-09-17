@@ -727,7 +727,7 @@ function nextChangePlanText(item) {
   if (!plan?.mode) return '';
   if (plan.mode === 'state') return 'Programado: Por estado';
   if (!plan.value) return '';
-  const labels = { hours: 'h reales', km: 'km reales', date: '' };
+  const labels = { hours: 'h marcador', km: 'km marcador', date: '' };
   return `Programado: ${safeText(plan.value)}${labels[plan.mode] ? ` ${labels[plan.mode]}` : ''}`;
 }
 function updateComponentFromEvent(change, eventRecord) {
