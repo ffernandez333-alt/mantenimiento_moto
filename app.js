@@ -894,7 +894,7 @@ document.addEventListener('click', event => {
   document.body.appendChild(backdrop);
   const mode = backdrop.querySelector('[data-plan-mode]'); const input = backdrop.querySelector('[data-plan-value]');
   if (record.nextChangePlan?.mode) mode.value = record.nextChangePlan.mode;
-  const updatePlaceholder = () => { const valueLabel = backdrop.querySelector('[data-plan-value-label]'); const isDate = mode.value === 'date'; input.placeholder = 'DD/MM/AAAA'; input.disabled = !isDate; valueLabel.hidden = !isDate; valueLabel.style.display = isDate ? '' : 'none'; };
+  const updatePlaceholder = () => { const valueLabel = backdrop.querySelector('[data-plan-value-label]'); const isDate = mode.value === 'date'; if (isDate && record.nextChangePlan?.mode !== 'date') input.value = ''; input.placeholder = 'DD/MM/AAAA'; input.disabled = !isDate; valueLabel.hidden = !isDate; valueLabel.style.display = isDate ? '' : 'none'; };
   mode.addEventListener('change', updatePlaceholder); updatePlaceholder(); input.focus();
   const close = () => backdrop.remove();
   backdrop.querySelector('[data-plan-cancel]').addEventListener('click', close); backdrop.querySelector('.modal-close').addEventListener('click', close);
@@ -1677,6 +1677,7 @@ sessionStorage.removeItem('motoReturnView');
 
 
 document.getElementById('componentSort')?.addEventListener('change', event => { localStorage.setItem(bikeStorageKey('componentSort'), event.target.value); renderComponents(); }); const savedComponentSort = localStorage.getItem(bikeStorageKey('componentSort')); if (savedComponentSort && document.getElementById('componentSort')) document.getElementById('componentSort').value = savedComponentSort;
+
 
 
 
