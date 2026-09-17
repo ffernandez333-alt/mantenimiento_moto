@@ -883,10 +883,13 @@ document.addEventListener('click', event => {
   if (!button) return;
   const record = componentRecords.find(item => item.name === button.dataset.componentName);
   if (!record) return;
-  const current = record.nextChangePlan?.value || '';
+  const storedPlan = record.nextChangePlan;
+  const markerBase = Number(record.lastChange?.markerHours);
+  const calculatedMarker = Number.isFinite(markerBase) && record.intervalHours ? Math.round(markerBase + record.intervalHours) : '';
+  const current = storedPlan?.mode === 'hours' && Number(storedPlan.value) === Number(record.intervalHours) && calculatedMarker ? calculatedMarker : (storedPlan?.value || calculatedMarker || '');
   const backdrop = document.createElement('div');
   backdrop.className = 'modal-backdrop';
-  backdrop.innerHTML = `<section class="modal component-plan-dialog" role="dialog" aria-modal="true"><button type="button" class="modal-close" aria-label="Cerrar">×</button><p class="eyebrow">Programación</p><h2>Próximo cambio</h2><p class="modal-subtitle">${safeText(record.name)}</p><label>Programar por<select data-plan-mode><option value="hours">Horas reales</option><option value="km">Kilómetros reales</option><option value="date">Fecha</option><option value="state">Por estado</option></select></label><label data-plan-value-label>Valor<input data-plan-value value="${safeText(current)}" placeholder="Horas, kilómetros o DD/MM/AA" /></label><div class="modal-actions"><button type="button" class="quiet-button" data-plan-cancel>Cancelar</button><button type="button" class="primary-button" data-plan-save>Guardar</button></div></section>`;
+  backdrop.innerHTML = `<section class="modal component-plan-dialog" role="dialog" aria-modal="true"><button type="button" class="modal-close" aria-label="Cerrar">×</button><p class="eyebrow">Programación</p><h2>Próximo cambio</h2><p class="modal-subtitle">${safeText(record.name)}</p><label>Programar por<select data-plan-mode><option value="hours">Horas marcador</option><option value="km">Kilómetros marcador</option><option value="date">Fecha</option><option value="state">Por estado</option></select></label><label data-plan-value-label>Valor<input data-plan-value value="${safeText(current)}" placeholder="Horas, kilómetros o DD/MM/AA" /></label><div class="modal-actions"><button type="button" class="quiet-button" data-plan-cancel>Cancelar</button><button type="button" class="primary-button" data-plan-save>Guardar</button></div></section>`;
   document.body.appendChild(backdrop);
   const mode = backdrop.querySelector('[data-plan-mode]'); const input = backdrop.querySelector('[data-plan-value]');
   if (record.nextChangePlan?.mode) mode.value = record.nextChangePlan.mode;
