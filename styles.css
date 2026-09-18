@@ -139,3 +139,4 @@
 
 .chart-orientation{display:flex;align-items:center;gap:8px;font-size:11px;margin-bottom:8px}.chart-orientation select{padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
  .selected-bike-marker{display:block;margin-top:5px;color:var(--muted);font-size:10px;font-style:normal}.component-overdue{color:#c9362f!important;font-weight:700}
+body.app-loading .app-shell{visibility:hidden}
