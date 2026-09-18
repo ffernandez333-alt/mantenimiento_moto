@@ -24,6 +24,7 @@ const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
 if (!Array.isArray(bikeProfiles) || !bikeProfiles.length) bikeProfiles = [{ id: 'moto-1', ...bikeDefaults, ...(legacyProfile || {}) }];
 bikeProfiles.forEach(profile => { if (!profile.maintenanceUnit) profile.maintenanceUnit = 'hours'; });
+localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles));
 let activeBikeId = localStorage.getItem('activeBikeId') || bikeProfiles[0].id;
 if (!bikeProfiles.some(profile => profile.id === activeBikeId)) activeBikeId = bikeProfiles[0].id;
 function bikeStorageKey(name) { return `${name}:${activeBikeId}`; }
