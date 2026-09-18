@@ -20,6 +20,7 @@ function ensureUsageView() {
 }
 ensureUsageView();
 const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908, maintenanceUnit: 'hours', itvNextDate: '2028-07-08', insuranceExpiryDate: '2026-10-16' };
+const bikeModelCatalog = { ktm250f: { brand: 'KTM', model: '250 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' }, ktm250tpi: { brand: 'KTM', model: '250 TPI / 300 TPI', engine: '2T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' }, ktm350f: { brand: 'KTM', model: '350 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' }, yamaha450: { brand: 'Yamaha', model: 'WR 450', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' } };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
 if (!Array.isArray(bikeProfiles) || !bikeProfiles.length) bikeProfiles = [{ id: 'moto-1', ...bikeDefaults, ...(legacyProfile || {}) }];
@@ -1157,6 +1158,7 @@ addBikeButton.addEventListener('click', () => {
   bikeModal.dataset.mode = 'new';
   bikeModal.querySelector('h2').textContent = 'Añadir moto';
   document.getElementById('formBrand').value = '';
+  document.getElementById('formBikeTemplate').value = 'custom';
   document.getElementById('formModel').value = '';
   document.getElementById('formYear').value = new Date().getFullYear();
   document.getElementById('formPlate').value = '';
@@ -1170,11 +1172,13 @@ addBikeButton.addEventListener('click', () => {
   document.getElementById('formPhoto').value = '';
   bikeModal.classList.remove('hidden');
 });
+document.getElementById('formBikeTemplate').addEventListener('change', event => { const template = bikeModelCatalog[event.target.value]; const preview = document.getElementById('bikeTemplatePreview'); if (!template) { if (preview) preview.src = 'assets/ktm-250-exc-tpi-2021.png'; return; } document.getElementById('formBrand').value = template.brand; document.getElementById('formModel').value = template.model; document.getElementById('formMaintenanceUnit').value = template.maintenanceUnit; if (preview) { preview.src = template.photo; preview.alt = `Vista lateral de ${template.brand} ${template.model}`; } });
 document.getElementById('editBike').addEventListener('click', () => {
   creatingBike = false;
   bikeModal.dataset.mode = 'edit';
   bikeModal.querySelector('h2').textContent = 'Editar datos básicos';
   document.getElementById('formBrand').value = bikeData.brand;
+  document.getElementById('formBikeTemplate').value = (bikeData.brand === 'KTM' && /250.*TPI/i.test(bikeData.model)) ? 'ktm250tpi' : Object.entries(bikeModelCatalog).find(([, template]) => template.brand === bikeData.brand && template.model === bikeData.model)?.[0] || 'custom';
   document.getElementById('formModel').value = bikeData.model;
   document.getElementById('formYear').value = bikeData.year;
   document.getElementById('formPlate').value = bikeData.plate;
@@ -1202,7 +1206,8 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   event.preventDefault();
   if (creatingBike) {
     const newId = `moto-${Date.now()}`;
-    const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), maintenanceUnit: document.getElementById('formMaintenanceUnit').value, realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)), itvNextDate: document.getElementById('formItvNext').value, insuranceExpiryDate: document.getElementById('formInsuranceExpiry').value };
+    const selectedTemplate = bikeModelCatalog[document.getElementById('formBikeTemplate').value];
+    const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), engine: selectedTemplate?.engine || '', year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), maintenanceUnit: document.getElementById('formMaintenanceUnit').value, realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)), itvNextDate: document.getElementById('formItvNext').value, insuranceExpiryDate: document.getElementById('formInsuranceExpiry').value };
     const file = document.getElementById('formPhoto').files[0];
     const finishNewBike = () => { saveBikeProfiles(); activeBikeId = newId; bikeProfiles.push(newProfile); localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles)); localStorage.setItem('activeBikeId', activeBikeId); events = []; saveEvents(); window.location.reload(); };
     if (file) { compressImage(file).then(prepared => { newProfile.photo = prepared.data; finishNewBike(); }).catch(() => window.alert('No se ha podido cargar la foto de la moto. Prueba con otra imagen.')); } else finishNewBike();
