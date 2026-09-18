@@ -138,5 +138,5 @@
 .component-chart-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}.component-chart-controls .quiet-button{padding:4px 9px;font-size:11px}.component-chart-controls small{color:var(--muted);font-size:10px;margin-left:4px}
 
 .chart-orientation{display:flex;align-items:center;gap:8px;font-size:11px;margin-bottom:8px}.chart-orientation select{padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
- .selected-bike-marker{display:block;margin-top:5px;color:var(--muted);font-size:10px;font-style:normal}.component-overdue{color:#c9362f!important;font-weight:700}
+ .selected-bike-marker{display:block;margin-top:7px;color:var(--ink);font-size:15px;font-weight:700;line-height:1.35;font-style:normal}.component-overdue{color:#c9362f!important;font-weight:700}
 body.app-loading .app-shell{visibility:hidden}
