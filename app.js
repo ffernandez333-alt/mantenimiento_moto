@@ -1693,3 +1693,5 @@ document.getElementById('componentSort')?.addEventListener('change', event => { 
 
 
 
+
+ document.body.classList.remove('app-loading');
