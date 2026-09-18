@@ -20,7 +20,7 @@ function ensureUsageView() {
 }
 ensureUsageView();
 const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908, maintenanceUnit: 'hours', itvNextDate: '2028-07-08', insuranceExpiryDate: '2026-10-16' };
-const bikeModelCatalog = { ktm250f: { brand: 'KTM', model: '250 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' }, ktm250tpi: { brand: 'KTM', model: '250 TPI / 300 TPI', engine: '2T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' }, ktm350f: { brand: 'KTM', model: '350 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' }, yamaha450: { brand: 'Yamaha', model: 'WR 450', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' } };
+const bikeModelCatalog = { ktm250f: { brand: 'KTM', model: '250 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-f.png' }, ktm250tpi: { brand: 'KTM', model: '250 TPI / 300 TPI', engine: '2T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' }, ktm350f: { brand: 'KTM', model: '350 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-350-f.png' }, yamaha450: { brand: 'Yamaha', model: 'WR 450', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/yamaha-wr450.jpg' } };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
 if (!Array.isArray(bikeProfiles) || !bikeProfiles.length) bikeProfiles = [{ id: 'moto-1', ...bikeDefaults, ...(legacyProfile || {}) }];
@@ -1196,8 +1196,11 @@ let newBikeRealHoursEdited = false;
 let newBikeRealKmEdited = false;
 document.getElementById('formRealHours').addEventListener('input', () => { if (bikeModal.dataset.mode === 'new') newBikeRealHoursEdited = true; });
 document.getElementById('formRealKm').addEventListener('input', () => { if (bikeModal.dataset.mode === 'new') newBikeRealKmEdited = true; });
-document.getElementById('formMarkerHours').addEventListener('input', event => { if (bikeModal.dataset.mode === 'new' && !newBikeRealHoursEdited) document.getElementById('formRealHours').value = event.target.value; });
-document.getElementById('formMarkerKm').addEventListener('input', event => { if (bikeModal.dataset.mode === 'new' && !newBikeRealKmEdited) document.getElementById('formRealKm').value = event.target.value; });
+const syncNewBikeReading = (source, target, editedFlag) => event => { if (bikeModal.dataset.mode === 'new' && !editedFlag()) document.getElementById(target).value = event.target.value; };
+document.getElementById('formMarkerHours').addEventListener('input', syncNewBikeReading('formMarkerHours', 'formRealHours', () => newBikeRealHoursEdited));
+document.getElementById('formMarkerHours').addEventListener('change', syncNewBikeReading('formMarkerHours', 'formRealHours', () => newBikeRealHoursEdited));
+document.getElementById('formMarkerKm').addEventListener('input', syncNewBikeReading('formMarkerKm', 'formRealKm', () => newBikeRealKmEdited));
+document.getElementById('formMarkerKm').addEventListener('change', syncNewBikeReading('formMarkerKm', 'formRealKm', () => newBikeRealKmEdited));
 function closeBikeModal() { bikeModal.classList.add('hidden'); }
 document.getElementById('closeBikeModal').addEventListener('click', closeBikeModal);
 document.getElementById('cancelBikeModal').addEventListener('click', closeBikeModal);
