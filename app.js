@@ -19,10 +19,11 @@ function ensureUsageView() {
   }
 }
 ensureUsageView();
-const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908, itvNextDate: '2028-07-08', insuranceExpiryDate: '2026-10-16' };
+const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908, maintenanceUnit: 'hours', itvNextDate: '2028-07-08', insuranceExpiryDate: '2026-10-16' };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
 if (!Array.isArray(bikeProfiles) || !bikeProfiles.length) bikeProfiles = [{ id: 'moto-1', ...bikeDefaults, ...(legacyProfile || {}) }];
+bikeProfiles.forEach(profile => { if (!profile.maintenanceUnit) profile.maintenanceUnit = 'hours'; });
 let activeBikeId = localStorage.getItem('activeBikeId') || bikeProfiles[0].id;
 if (!bikeProfiles.some(profile => profile.id === activeBikeId)) activeBikeId = bikeProfiles[0].id;
 function bikeStorageKey(name) { return `${name}:${activeBikeId}`; }
@@ -1150,12 +1151,15 @@ const editBikeButton = document.getElementById('editBike');
 document.querySelector('#view-motos .profile-title')?.appendChild(editBikeButton);
 addBikeButton.addEventListener('click', () => {
   creatingBike = true;
+  newBikeRealHoursEdited = false;
+  newBikeRealKmEdited = false;
   bikeModal.dataset.mode = 'new';
   bikeModal.querySelector('h2').textContent = 'Añadir moto';
   document.getElementById('formBrand').value = '';
   document.getElementById('formModel').value = '';
   document.getElementById('formYear').value = new Date().getFullYear();
   document.getElementById('formPlate').value = '';
+  document.getElementById('formMaintenanceUnit').value = 'hours';
   document.getElementById('formRealHours').value = 0;
   document.getElementById('formMarkerHours').value = 0;
   document.getElementById('formRealKm').value = 0;
@@ -1173,6 +1177,7 @@ document.getElementById('editBike').addEventListener('click', () => {
   document.getElementById('formModel').value = bikeData.model;
   document.getElementById('formYear').value = bikeData.year;
   document.getElementById('formPlate').value = bikeData.plate;
+  document.getElementById('formMaintenanceUnit').value = bikeData.maintenanceUnit || 'hours';
   document.getElementById('formRealHours').value = bikeData.realHours;
   document.getElementById('formMarkerHours').value = bikeData.markerHours;
   document.getElementById('formRealKm').value = bikeData.realKm;
@@ -1182,6 +1187,12 @@ document.getElementById('editBike').addEventListener('click', () => {
   document.getElementById('formPhoto').value = '';
   bikeModal.classList.remove('hidden');
 });
+let newBikeRealHoursEdited = false;
+let newBikeRealKmEdited = false;
+document.getElementById('formRealHours').addEventListener('input', () => { if (bikeModal.dataset.mode === 'new') newBikeRealHoursEdited = true; });
+document.getElementById('formRealKm').addEventListener('input', () => { if (bikeModal.dataset.mode === 'new') newBikeRealKmEdited = true; });
+document.getElementById('formMarkerHours').addEventListener('input', event => { if (bikeModal.dataset.mode === 'new' && !newBikeRealHoursEdited) document.getElementById('formRealHours').value = event.target.value; });
+document.getElementById('formMarkerKm').addEventListener('input', event => { if (bikeModal.dataset.mode === 'new' && !newBikeRealKmEdited) document.getElementById('formRealKm').value = event.target.value; });
 function closeBikeModal() { bikeModal.classList.add('hidden'); }
 document.getElementById('closeBikeModal').addEventListener('click', closeBikeModal);
 document.getElementById('cancelBikeModal').addEventListener('click', closeBikeModal);
@@ -1190,7 +1201,7 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   event.preventDefault();
   if (creatingBike) {
     const newId = `moto-${Date.now()}`;
-    const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)), itvNextDate: document.getElementById('formItvNext').value, insuranceExpiryDate: document.getElementById('formInsuranceExpiry').value };
+    const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), maintenanceUnit: document.getElementById('formMaintenanceUnit').value, realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)), itvNextDate: document.getElementById('formItvNext').value, insuranceExpiryDate: document.getElementById('formInsuranceExpiry').value };
     const file = document.getElementById('formPhoto').files[0];
     const finishNewBike = () => { saveBikeProfiles(); activeBikeId = newId; bikeProfiles.push(newProfile); localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles)); localStorage.setItem('activeBikeId', activeBikeId); events = []; saveEvents(); window.location.reload(); };
     if (file) { compressImage(file).then(prepared => { newProfile.photo = prepared.data; finishNewBike(); }).catch(() => window.alert('No se ha podido cargar la foto de la moto. Prueba con otra imagen.')); } else finishNewBike();
@@ -1200,6 +1211,7 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   bikeData.model = document.getElementById('formModel').value.trim();
   bikeData.year = document.getElementById('formYear').value;
   bikeData.plate = document.getElementById('formPlate').value.trim();
+  bikeData.maintenanceUnit = document.getElementById('formMaintenanceUnit').value;
   bikeData.realHours = Math.round(Number(document.getElementById('formRealHours').value));
   bikeData.markerHours = Math.round(Number(document.getElementById('formMarkerHours').value));
   bikeData.realKm = Math.round(Number(document.getElementById('formRealKm').value));
