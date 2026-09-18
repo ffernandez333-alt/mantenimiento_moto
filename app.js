@@ -760,6 +760,7 @@ function updateComponentFromEvent(change, eventRecord) {
   saveComponents();
   renderComponents();
 }
+const componentMarkerReadings = {"2021-12-14":{"markerHours":50,"markerKm":1772},"2022-06-20":{"markerHours":120,"markerKm":3517},"2022-09-25":{"markerHours":140,"markerKm":4100},"2022-10-28":{"markerHours":160,"markerKm":4400},"2023-01-03":{"markerHours":189,"markerKm":5293},"2023-04-10":{"markerHours":230,"markerKm":6352},"2023-07-01":{"markerHours":260,"markerKm":7221},"2023-11-15":{"markerHours":280,"markerKm":null},"2023-12-30":{"markerHours":300,"markerKm":8200},"2024-02-22":{"markerHours":320,"markerKm":8777},"2024-04-05":{"markerHours":340,"markerKm":9106},"2024-06-17":{"markerHours":372,"markerKm":9688},"2024-11-08":{"markerHours":146,"markerKm":3306},"2025-01-19":{"markerHours":146,"markerKm":3900},"2025-03-31":{"markerHours":186,"markerKm":4242},"2025-06-29":{"markerHours":220,"markerKm":4849},"2025-11-14":{"markerHours":260,"markerKm":5574},"2026-01-26":{"markerHours":280,"markerKm":6314},"2026-03-13":{"markerHours":300,"markerKm":6760},"2026-07-26":{"markerHours":320,"markerKm":null}};
 function syncComponentsFromEvents() {
   componentRecords.forEach(record => {
     const changes = events.map((item, eventIndex) => ({ item, eventIndex })).filter(({ item }) => item.type === 'Sustitución de componente' && (item.componentChanges || [item.componentChange]).some(change => change?.name === record.name)).sort((a, b) => String(b.item.dateISO || '').localeCompare(String(a.item.dateISO || '')));
@@ -776,8 +777,10 @@ function syncComponentsFromEvents() {
     record.tone = 'good';
     record.detail = `${latest.date} · ${latest.realHours || latest.hours || '—'} h · ${latest.realKm || latest.km || '—'} km`;
     const latestPart = (latest.componentChanges || [latest.componentChange]).find(change => change?.name === record.name) || {};
-    record.lastChange = { date: latest.date, dateISO: latest.dateISO, markerHours: latest.markerHours ?? latest.hours, realHours: latest.realHours, realKm: latest.realKm, cost: latest.cost || '', reference: latestPart.reference || '', eventIndex: changes[0].eventIndex };
-    record.history = changes.map(({ item: change, eventIndex }) => { const part = (change.componentChanges || [change.componentChange]).find(component => component?.name === record.name) || {}; return { date: change.date, dateISO: change.dateISO, markerHours: change.markerHours ?? change.hours, realHours: change.realHours || change.hours, realKm: change.realKm || change.km, cost: change.cost || '', reference: part.reference || '', eventIndex }; });
+    const markerReading = componentMarkerReadings[latest.dateISO];
+    if (markerReading) { latest.markerHours = markerReading.markerHours; latest.markerKm = markerReading.markerKm; latest.hours = markerReading.markerHours; latest.km = markerReading.markerKm; }
+    record.lastChange = { date: latest.date, dateISO: latest.dateISO, markerHours: markerReading?.markerHours ?? latest.markerHours ?? latest.hours, markerKm: markerReading?.markerKm ?? latest.markerKm ?? latest.km, realHours: latest.realHours, realKm: latest.realKm, cost: latest.cost || '', reference: latestPart.reference || '', eventIndex: changes[0].eventIndex };
+    record.history = changes.map(({ item: change, eventIndex }) => { const part = (change.componentChanges || [change.componentChange]).find(component => component?.name === record.name) || {}; const reading = componentMarkerReadings[change.dateISO]; return { date: change.date, dateISO: change.dateISO, markerHours: reading?.markerHours ?? change.markerHours ?? change.hours, markerKm: reading?.markerKm ?? change.markerKm ?? change.km, realHours: change.realHours || change.hours, realKm: change.realKm || change.km, cost: change.cost || '', reference: part.reference || '', eventIndex }; });
   });
   saveComponents();
   renderComponents();
