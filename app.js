@@ -1196,11 +1196,11 @@ let newBikeRealHoursEdited = false;
 let newBikeRealKmEdited = false;
 document.getElementById('formRealHours').addEventListener('input', () => { if (bikeModal.dataset.mode === 'new') newBikeRealHoursEdited = true; });
 document.getElementById('formRealKm').addEventListener('input', () => { if (bikeModal.dataset.mode === 'new') newBikeRealKmEdited = true; });
-const syncNewBikeReading = (source, target, editedFlag) => event => { if (bikeModal.dataset.mode === 'new' && !editedFlag()) document.getElementById(target).value = event.target.value; };
-document.getElementById('formMarkerHours').addEventListener('input', syncNewBikeReading('formMarkerHours', 'formRealHours', () => newBikeRealHoursEdited));
-document.getElementById('formMarkerHours').addEventListener('change', syncNewBikeReading('formMarkerHours', 'formRealHours', () => newBikeRealHoursEdited));
-document.getElementById('formMarkerKm').addEventListener('input', syncNewBikeReading('formMarkerKm', 'formRealKm', () => newBikeRealKmEdited));
-document.getElementById('formMarkerKm').addEventListener('change', syncNewBikeReading('formMarkerKm', 'formRealKm', () => newBikeRealKmEdited));
+const syncNewBikeReading = (target) => event => { if (bikeModal.dataset.mode === 'new') document.getElementById(target).value = event.target.value; };
+document.getElementById('formMarkerHours').addEventListener('input', syncNewBikeReading('formRealHours'));
+document.getElementById('formMarkerHours').addEventListener('change', syncNewBikeReading('formRealHours'));
+document.getElementById('formMarkerKm').addEventListener('input', syncNewBikeReading('formRealKm'));
+document.getElementById('formMarkerKm').addEventListener('change', syncNewBikeReading('formRealKm'));
 function closeBikeModal() { bikeModal.classList.add('hidden'); }
 document.getElementById('closeBikeModal').addEventListener('click', closeBikeModal);
 document.getElementById('cancelBikeModal').addEventListener('click', closeBikeModal);
