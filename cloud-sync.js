@@ -34,6 +34,17 @@
       // copia remota antigua que aún no contiene las lecturas de marcador.
       const correctedComponentKey = Object.keys(local).find(key => key.includes('componentSpreadsheetImport20260917'));
       const remoteData = { ...(remote.data || {}) };
+      // Las altas de motos deben fusionarse: una copia remota antigua no puede
+      // borrar una moto creada localmente mientras terminaba la sincronización.
+      try {
+        const localProfiles = JSON.parse(local.motoProfiles || '[]');
+        const remoteProfiles = JSON.parse(remoteData.motoProfiles || '[]');
+        if (Array.isArray(localProfiles) && Array.isArray(remoteProfiles)) {
+          const merged = [...remoteProfiles];
+          localProfiles.forEach(profile => { const index = merged.findIndex(item => item.id === profile.id); if (index >= 0) merged[index] = { ...merged[index], ...profile }; else merged.push(profile); });
+          remoteData.motoProfiles = JSON.stringify(merged);
+        }
+      } catch { /* Conserva la copia remota si los perfiles no tienen formato válido. */ }
       if (correctedComponentKey) {
         Object.keys(local).filter(key => key.startsWith('motoEvents')).forEach(key => {
           try {
