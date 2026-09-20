@@ -733,7 +733,11 @@ const bikeModal = document.getElementById('bikeModal');
 const bikeData = { ...bikeDefaults, ...(bikeProfiles.find(profile => profile.id === activeBikeId) || {}) };
 const defaultBikePhoto = 'assets/ktm-250-exc-tpi-2021.png';
 function profilePhoto(profile) {
-  return profile.photo || (profile.brand === 'KTM' && profile.model === bikeDefaults.model ? defaultBikePhoto : 'assets/moto-sin-foto.svg');
+  if (profile.photo) return profile.photo;
+  const identity = `${profile.brand || ''} ${profile.model || ''}`.toLocaleLowerCase('es-ES');
+  if (identity.includes('yamaha') && identity.includes('wr 450')) return 'assets/yamaha-wr450-2010.jpg';
+  const template = Object.values(bikeModelCatalog).find(item => item.brand === profile.brand && item.model === profile.model);
+  return template?.photo || (profile.brand === 'KTM' && profile.model === bikeDefaults.model ? defaultBikePhoto : 'assets/moto-sin-foto.svg');
 }
 const componentDefinitions = [
   ['Cadena', 'Transmisión', 80, '78010267118', 99.96], ['Corona', 'Transmisión', 80, '', null], ['Piñón', 'Transmisión', 80, '79233129014', null], ['Pastillas de freno delanteras', 'Frenos', 80, '', null], ['Pastillas de freno traseras', 'Frenos', 80, '', null], ['Líquido de frenos', 'Frenos', 12, '00062030000', null], ['Líquido de embrague', 'Embrague', 12, '', null], ['Cámara delantera', 'Ruedas', 80, '', null], ['Cámara trasera', 'Ruedas', 80, '', null], ['Mousse delantero', 'Ruedas', 80, '', null], ['Mousse trasero', 'Ruedas', 80, '', null], ['Aceite del cambio', 'Lubricación', 40, '', null], ['Bujía', 'Motor', 80, '', null], ['Líquido refrigerante', 'Refrigeración', 48, '', null], ['Fibra del escape', 'Escape', 80, '', null], ['Pistón', 'Motor', 80, '55530138100', 901.68], ['Segmentos', 'Motor', 80, '54830232000', null], ['Biela', 'Motor', 160, '54830015244', null], ['Filtro de aire', 'Admisión', null, '79006015000', 20.04], ['Servicio de horquilla', 'Suspensión', 40, '', null], ['Servicio de amortiguador', 'Suspensión', 40, '', null], ['Tamiz de combustible', 'Alimentación', 80, '', null], ['Filtro del depósito de combustible', 'Alimentación', 80, '', null], ['Guía de cadena', 'Transmisión', 80, 'A48004970044', 49.08], ['Embrague', 'Motor', 80, '54832011110', null], ['Disco de freno delantero', 'Frenos', 80, '', null], ['Disco de freno trasero', 'Frenos', 80, '', null], ['Neumático delantero', 'Ruedas', null, '', null], ['Neumático trasero', 'Ruedas', null, '', null], ['Filtro de combustible', 'Alimentación', 80, '', null], ['Pipa de bujía', 'Motor', 80, '', null], ['Cilindro', 'Motor', 80, '55530138100', 901.68], ['Caja de cambios', 'Transmisión', 160, '', null], ['Bomba de aceite', 'Lubricación', 80, '', null], ['Batería', 'Electricidad', 40, '', null], ['Rodamiento de rueda delantero', 'Ruedas', 80, '', null], ['Rodamiento de rueda trasero', 'Ruedas', 80, '', null], ['Cojinetes de dirección', 'Dirección', 40, '', null], ['Cojinetes de basculante', 'Chasis', 40, '', null], ['Radios', 'Ruedas', 40, '', null], ['Silencioso', 'Escape', 80, '', null], ['Distribución de escape', 'Motor', 80, '', null], ['Motor de arranque', 'Electricidad', 80, '', null]
@@ -1098,9 +1102,10 @@ function renderAllBikeProfiles() {
     card.querySelector('h2').textContent = `${profile.brand} ${profile.model}`;
     card.querySelector('.profile-title p').textContent = `${profile.year}`;
     card.querySelector('button').addEventListener('click', () => selectBike(profile.id));
-    if (profile.photo || (profile.brand === 'KTM' && profile.model === bikeDefaults.model)) {
+    const photoSrc = profilePhoto(profile);
+    if (!photoSrc.endsWith('moto-sin-foto.svg')) {
       const photo = document.createElement('img');
-      photo.src = profile.photo || defaultBikePhoto;
+      photo.src = photoSrc;
       photo.alt = `${profile.brand} ${profile.model}`;
       card.querySelector('.profile-visual').appendChild(photo);
     } else {
@@ -1210,7 +1215,7 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   if (creatingBike) {
     const newId = `moto-${Date.now()}`;
     const selectedTemplate = bikeModelCatalog[document.getElementById('formBikeTemplate').value];
-    const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), engine: selectedTemplate?.engine || '', maintenancePlanId: document.getElementById('formBikeTemplate').value === 'yamaha450' ? 'yamaha-wr450-1000km' : 'ktm-base', year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), maintenanceUnit: document.getElementById('formMaintenanceUnit').value, realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)), itvNextDate: document.getElementById('formItvNext').value, insuranceExpiryDate: document.getElementById('formInsuranceExpiry').value };
+    const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), engine: selectedTemplate?.engine || '', photo: selectedTemplate?.photo || '', maintenancePlanId: document.getElementById('formBikeTemplate').value === 'yamaha450' ? 'yamaha-wr450-1000km' : 'ktm-base', year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), maintenanceUnit: document.getElementById('formMaintenanceUnit').value, realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)), itvNextDate: document.getElementById('formItvNext').value, insuranceExpiryDate: document.getElementById('formInsuranceExpiry').value };
     const file = document.getElementById('formPhoto').files[0];
     const finishNewBike = () => { bikeProfiles.push(newProfile); activeBikeId = newId; localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles)); localStorage.setItem('activeBikeId', activeBikeId); events = []; saveEvents(); window.setTimeout(() => window.location.reload(), 1200); };
     if (file) { compressImage(file).then(prepared => { newProfile.photo = prepared.data; finishNewBike(); }).catch(() => window.alert('No se ha podido cargar la foto de la moto. Prueba con otra imagen.')); } else finishNewBike();
