@@ -1228,7 +1228,7 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   bikeData.itvNextDate = document.getElementById('formItvNext').value;
   bikeData.insuranceExpiryDate = document.getElementById('formInsuranceExpiry').value;
   const file = document.getElementById('formPhoto').files[0];
-  const save = () => { saveBikeProfiles(); maintenancePlan = filterMaintenancePlan(JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null') || defaultMaintenancePlan); updateBikeView(); renderBikeSwitcher(); renderMaintenancePlan(); renderMaintenanceChecklist(); closeBikeModal(); };
+  const save = () => { saveBikeProfiles(); maintenancePlan = filterMaintenancePlan(JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null') || (/WR\s*450/i.test(String(bikeData.model || '')) ? yamahaWr450MaintenancePlan : defaultMaintenancePlan)); updateBikeView(); renderBikeSwitcher(); renderMaintenancePlan(); renderMaintenanceChecklist(); closeBikeModal(); };
   if (file) { compressImage(file).then(prepared => { bikeData.photo = prepared.data; save(); }).catch(() => window.alert('No se ha podido cargar la foto de la moto. Prueba con otra imagen.')); } else save();
 });
 
@@ -1245,13 +1245,45 @@ const defaultMaintenancePlan = {
     { label: 'Cada 12 meses', kind: 'Anual', tasks: ['Sustituir el líquido de frenos delantero.', 'Sustituir el líquido de frenos trasero.', 'Cambiar el líquido de embrague hidráulico.', 'Engrasar el cojinete de la dirección.', 'Limpiar la manguera del sensor de presión.', 'Limpiar la cubierta de protección del sensor de presión.'] },
   ]
 };
+const yamahaWr450MaintenancePlan = {
+  source: 'Manual de taller Yamaha WR450F 2004 · páginas 181-183',
+  sections: [{ label: 'Cada 1.000 km', kind: 'Plan Yamaha WR450F', tasks: [
+    'Sustituir el aceite del motor.',
+    'Inspeccionar los juegos de válvula con el motor frío; comprobar desgaste de asientos y vástagos y sustituir cuando sea necesario.',
+    'Inspeccionar los muelles de válvula; comprobar longitud libre e inclinación y sustituir cuando sea necesario.',
+    'Inspeccionar los empujadores de válvula; comprobar arañazos y desgaste y sustituir cuando sea necesario.',
+    'Inspeccionar los árboles de levas; revisar la superficie y el sistema de descompresión y sustituir cuando sea necesario.',
+    'Inspeccionar los piñones de los árboles de levas; comprobar daños y desgaste de los dientes y sustituir cuando sea necesario.',
+    'Inspeccionar el pistón; limpiar y eliminar depósitos de carbonilla y sustituir si presenta grietas o daños.',
+    'Inspeccionar y sustituir los aros del pistón cuando proceda; comprobar el huelgo del extremo del aro.',
+    'Inspeccionar el bulón del pistón y sustituirlo cuando sea necesario.',
+    'Inspeccionar y limpiar la culata; eliminar depósitos de carbonilla y cambiar la junta cuando proceda.',
+    'Inspeccionar y limpiar el cilindro; sustituirlo cuando sea necesario.',
+    'Sustituir el filtro de aceite.',
+    'Limpiar el filtro tamiz del bastidor.',
+    'Ajustar de nuevo la tuerca del rotor.',
+    'Limpiar el silenciador y sustituirlo cuando sea necesario.',
+    'Inspeccionar y limpiar el cárter.',
+    'Limpiar y sustituir el aceite de las horquillas delanteras; utilizar aceite de suspensión “01”.',
+    'Limpiar y engrasar el cabezal de dirección; sustituir el cojinete cuando sea necesario.',
+    'Sustituir la bujía cuando sea necesario.',
+    'Sustituir el embrague, el cojinete de la transmisión, el líquido refrigerante y el filtro de aire cuando sea necesario.',
+    'Inspeccionar la horquilla de selección, la leva de selección y la barra guía; reparar o sustituir cuando sea necesario.',
+    'Inspeccionar el sistema de arranque en caliente y los bornes de la batería; corregir cuando sea necesario.',
+    'Sustituir los retenes de aceite de la horquilla y los cojinetes de rueda cuando sea necesario.',
+    'Engrasar el amortiguador trasero y lubricar el soporte lateral cuando sea necesario.',
+    'Inspeccionar el tope de la cadena y sustituirlo cuando sea necesario.',
+    'Sustituir las pastillas y el líquido de frenos cuando sea necesario.'
+  ]}]
+};
 function maintenancePlanKey() { return `motoMaintenancePlan:${encodeURIComponent(activeBikeId)}`; }
 function isSelectableMaintenanceSection(section) {
   const label = String(section?.label || '');
   return !/tareas detectadas|despu[eé]s de\s+(?:10|15|20)\s+horas?|cada\s+10\s+horas|deportiv|competici[oó]n|inicial/i.test(label);
 }
 function filterMaintenancePlan(plan) { return { ...plan, sections: (plan.sections || []).filter(isSelectableMaintenanceSection) }; }
-let maintenancePlan = filterMaintenancePlan(JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null') || defaultMaintenancePlan);
+const maintenancePlanFallback = /WR\s*450/i.test(String(bikeData.model || '')) ? yamahaWr450MaintenancePlan : defaultMaintenancePlan;
+let maintenancePlan = filterMaintenancePlan(JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null') || maintenancePlanFallback);
 for (let storageIndex = 0; storageIndex < localStorage.length; storageIndex += 1) {
   const storageKey = localStorage.key(storageIndex);
   if (!storageKey?.startsWith(`motoMaintenanceCustomPlan:${maintenancePlanKey()}:`)) continue;
