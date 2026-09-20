@@ -1210,7 +1210,7 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   if (creatingBike) {
     const newId = `moto-${Date.now()}`;
     const selectedTemplate = bikeModelCatalog[document.getElementById('formBikeTemplate').value];
-    const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), engine: selectedTemplate?.engine || '', year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), maintenanceUnit: document.getElementById('formMaintenanceUnit').value, realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)), itvNextDate: document.getElementById('formItvNext').value, insuranceExpiryDate: document.getElementById('formInsuranceExpiry').value };
+    const newProfile = { id: newId, brand: document.getElementById('formBrand').value.trim(), model: document.getElementById('formModel').value.trim(), engine: selectedTemplate?.engine || '', maintenancePlanId: document.getElementById('formBikeTemplate').value === 'yamaha450' ? 'yamaha-wr450-1000km' : 'ktm-base', year: document.getElementById('formYear').value, plate: document.getElementById('formPlate').value.trim(), maintenanceUnit: document.getElementById('formMaintenanceUnit').value, realHours: Math.round(Number(document.getElementById('formRealHours').value)), markerHours: Math.round(Number(document.getElementById('formMarkerHours').value)), realKm: Math.round(Number(document.getElementById('formRealKm').value)), markerKm: Math.round(Number(document.getElementById('formMarkerKm').value)), itvNextDate: document.getElementById('formItvNext').value, insuranceExpiryDate: document.getElementById('formInsuranceExpiry').value };
     const file = document.getElementById('formPhoto').files[0];
     const finishNewBike = () => { saveBikeProfiles(); activeBikeId = newId; bikeProfiles.push(newProfile); localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles)); localStorage.setItem('activeBikeId', activeBikeId); events = []; saveEvents(); window.location.reload(); };
     if (file) { compressImage(file).then(prepared => { newProfile.photo = prepared.data; finishNewBike(); }).catch(() => window.alert('No se ha podido cargar la foto de la moto. Prueba con otra imagen.')); } else finishNewBike();
@@ -1228,7 +1228,7 @@ document.getElementById('bikeForm').addEventListener('submit', event => {
   bikeData.itvNextDate = document.getElementById('formItvNext').value;
   bikeData.insuranceExpiryDate = document.getElementById('formInsuranceExpiry').value;
   const file = document.getElementById('formPhoto').files[0];
-  const save = () => { saveBikeProfiles(); maintenancePlan = filterMaintenancePlan(JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null') || (/WR\s*450/i.test(String(bikeData.model || '')) ? yamahaWr450MaintenancePlan : defaultMaintenancePlan)); updateBikeView(); renderBikeSwitcher(); renderMaintenancePlan(); renderMaintenanceChecklist(); closeBikeModal(); };
+  const save = () => { saveBikeProfiles(); maintenancePlan = filterMaintenancePlan(JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null') || maintenancePlanForProfile(bikeData)); updateBikeView(); renderBikeSwitcher(); renderMaintenancePlan(); renderMaintenanceChecklist(); closeBikeModal(); };
   if (file) { compressImage(file).then(prepared => { bikeData.photo = prepared.data; save(); }).catch(() => window.alert('No se ha podido cargar la foto de la moto. Prueba con otra imagen.')); } else save();
 });
 
@@ -1282,8 +1282,10 @@ function isSelectableMaintenanceSection(section) {
   return !/tareas detectadas|despu[eé]s de\s+(?:10|15|20)\s+horas?|cada\s+10\s+horas|deportiv|competici[oó]n|inicial/i.test(label);
 }
 function filterMaintenancePlan(plan) { return { ...plan, sections: (plan.sections || []).filter(isSelectableMaintenanceSection) }; }
-const maintenancePlanFallback = /WR\s*450/i.test(String(bikeData.model || '')) ? yamahaWr450MaintenancePlan : defaultMaintenancePlan;
-let maintenancePlan = filterMaintenancePlan(JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null') || maintenancePlanFallback);
+function maintenancePlanForProfile(profile) { const identity = `${profile?.brand || ''} ${profile?.model || ''}`; return /yamaha.*wr\s*450|wr\s*450/i.test(identity) ? yamahaWr450MaintenancePlan : defaultMaintenancePlan; }
+const maintenancePlanFallback = maintenancePlanForProfile(bikeData);
+const storedMaintenancePlan = JSON.parse(localStorage.getItem(maintenancePlanKey()) || 'null');
+let maintenancePlan = filterMaintenancePlan(/yamaha.*wr\s*450|wr\s*450/i.test(`${bikeData.brand || ''} ${bikeData.model || ''}`) ? maintenancePlanFallback : (storedMaintenancePlan || maintenancePlanFallback));
 for (let storageIndex = 0; storageIndex < localStorage.length; storageIndex += 1) {
   const storageKey = localStorage.key(storageIndex);
   if (!storageKey?.startsWith(`motoMaintenanceCustomPlan:${maintenancePlanKey()}:`)) continue;
