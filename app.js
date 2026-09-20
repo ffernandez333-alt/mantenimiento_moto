@@ -33,6 +33,7 @@ function saveEvents() { localStorage.setItem(bikeStorageKey('motoEvents'), JSON.
 
 function showView(view) {
   const targetView = view === 'hoy' || view === 'dashboard' ? 'motos' : view;
+  if (targetView === 'motos' && view === 'motos') sessionStorage.setItem('motoShowAll', '1');
   if ((typeof workshopOpen !== 'undefined' && workshopOpen || document.body.classList.contains('workshop-mode')) && targetView !== 'mantenimiento') return;
   if (view === 'vida' && typeof refreshMaintenanceLifeEvents === 'function') {
     try { refreshMaintenanceLifeEvents(); } catch (error) { console.error('No se pudo actualizar el Libro de vida.', error); }
@@ -1040,10 +1041,12 @@ function selectBike(id) {
   // Pulsar una moto siempre lleva a su página de inicio (Mis motos),
   // incluso si ya era la moto seleccionada.
   if (id === activeBikeId) {
+    sessionStorage.setItem('motoShowAll', '0');
     showView('motos');
     return;
   }
   saveBikeProfiles();
+  sessionStorage.setItem('motoShowAll', '0');
   sessionStorage.setItem('motoReturnView', 'motos');
   localStorage.setItem('activeBikeId', id);
   window.location.reload();
@@ -1095,7 +1098,7 @@ function renderAllBikeProfiles() {
     selected.after(others);
   }
   others.replaceChildren();
-  bikeProfiles.filter(profile => profile.id !== activeBikeId).forEach(profile => {
+  if (sessionStorage.getItem('motoShowAll') === '1') bikeProfiles.filter(profile => profile.id !== activeBikeId).forEach(profile => {
     const card = document.createElement('section');
     card.className = 'bike-profile';
     card.innerHTML = '<div class="profile-visual"></div><div class="profile-details"><div class="profile-title"><div><h2></h2><p></p></div><button type="button" class="primary-button">Seleccionar moto</button></div><div class="detail-grid"></div></div>';
@@ -1140,7 +1143,8 @@ function renderBikeSwitcher() {
   const switcher = document.querySelector('.bike-switcher');
   if (!switcher) return;
   const sections = [{ view: 'vida', label: 'Libro de vida', icon: '↗', tooltip: 'Consulta el historial de salidas, mantenimientos y documentos.' }, { view: 'mantenimiento', label: 'Mantenimiento', icon: '⌁', tooltip: 'Inicia una revisión y completa sus tareas.' }, { view: 'componentes', label: 'Componentes', icon: '◫', tooltip: 'Consulta el estado y la vida útil de los componentes.' }, { view: 'uso', label: 'Gráficos', icon: '▥', tooltip: 'Analiza horas, kilómetros y cambios de componentes.' }];
-  switcher.innerHTML = `<div class="bike-list-heading">Mis motos</div><div class="bike-tree" aria-label="Mis motos">${bikeProfiles.map(profile => `<div class="bike-tree-item"><button type="button" class="bike-list-item ${profile.id === activeBikeId ? 'active' : ''}" aria-pressed="${profile.id === activeBikeId}" data-bike-id="${safeText(profile.id)}"><img src="${profilePhoto(profile)}" alt="" /><span><strong>${safeText(`${profile.brand} ${profile.model}`)}</strong><small>${safeText(`${profile.year}`)}</small></span><b aria-hidden="true">${profile.id === activeBikeId ? '⌄' : '›'}</b></button>${profile.id === activeBikeId ? `<div class="bike-section-list">${sections.map(section => `<button type="button" class="bike-section-item" data-section-view="${section.view}" data-tooltip="${section.tooltip}"><span>${section.icon}</span>${section.label}</button>`).join('')}</div>` : ''}</div>`).join('')}</div><button type="button" class="sidebar-add-bike" id="addBikeSidebar"><span>＋</span> Añadir moto</button>`;
+  switcher.innerHTML = `<button type="button" class="bike-list-heading" id="allBikesButton">Mis motos</button><div class="bike-tree" aria-label="Mis motos">${bikeProfiles.map(profile => `<div class="bike-tree-item"><button type="button" class="bike-list-item ${profile.id === activeBikeId ? 'active' : ''}" aria-pressed="${profile.id === activeBikeId}" data-bike-id="${safeText(profile.id)}"><img src="${profilePhoto(profile)}" alt="" /><span><strong>${safeText(`${profile.brand} ${profile.model}`)}</strong><small>${safeText(`${profile.year}`)}</small></span><b aria-hidden="true">${profile.id === activeBikeId ? '⌄' : '›'}</b></button>${profile.id === activeBikeId ? `<div class="bike-section-list">${sections.map(section => `<button type="button" class="bike-section-item" data-section-view="${section.view}" data-tooltip="${section.tooltip}"><span>${section.icon}</span>${section.label}</button>`).join('')}</div>` : ''}</div>`).join('')}</div><button type="button" class="sidebar-add-bike" id="addBikeSidebar"><span>＋</span> Añadir moto</button>`;
+  switcher.querySelector('#allBikesButton')?.addEventListener('click', () => { sessionStorage.setItem('motoShowAll', '1'); showView('motos'); });
   switcher.querySelectorAll('.bike-list-item').forEach(button => button.addEventListener('click', () => selectBike(button.dataset.bikeId)));
   switcher.querySelectorAll('.bike-section-item').forEach(button => button.addEventListener('click', event => { event.stopPropagation(); showView(button.dataset.sectionView); }));
 }
