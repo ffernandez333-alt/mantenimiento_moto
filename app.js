@@ -1127,8 +1127,6 @@ function renderAllBikeProfiles() {
     });
     others.appendChild(card);
   });
-  view.querySelector('.profile-section-heading h2').textContent = `Configuración de mantenimiento · ${bikeData.brand} ${bikeData.model}`;
-  view.querySelector('.profile-section-heading p').textContent = `Intervalos usados para generar avisos.`;
 }
 updateBikeView();
 syncComponentsFromEvents();
