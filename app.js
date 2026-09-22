@@ -1092,7 +1092,7 @@ function renderAllBikeProfiles() {
   selected.querySelector('.profile-id').textContent = `ID · ${activeBikeId}`;
   selected.querySelector('#bikePhoto').alt = `${bikeData.brand} ${bikeData.model}`;
   selected.querySelector('.photo-label').textContent = profilePhoto(bikeData).endsWith('moto-sin-foto.svg') ? 'Añade una foto desde Editar ficha' : `${bikeData.brand} ${bikeData.model}`;
-  if (!selected.querySelector('.delete-bike-button') && bikeProfiles.length > 1) { const button = document.createElement('button'); button.type = 'button'; button.className = 'quiet-button delete-bike-button'; button.textContent = 'Eliminar moto'; button.addEventListener('click', () => deleteBike(activeBikeId)); selected.querySelector('.profile-title')?.appendChild(button); }
+  if (!selected.querySelector('.delete-bike-button') && bikeProfiles.length > 1) { const button = document.createElement('button'); button.type = 'button'; button.className = 'primary-button delete-bike-button'; button.textContent = 'Eliminar ficha'; button.addEventListener('click', () => deleteBike(activeBikeId)); selected.querySelector('.profile-title')?.appendChild(button); }
   const latest = latestMaintenanceEvent();
   const selectedGrid = selected.querySelector('.detail-grid');
   if (selectedGrid) {
@@ -1114,7 +1114,7 @@ function renderAllBikeProfiles() {
     card.querySelector('h2').textContent = `${profile.brand} ${profile.model}`;
     card.querySelector('.profile-title p').textContent = `${profile.year}`;
     card.querySelector('button').addEventListener('click', () => selectBike(profile.id));
-    const deleteButton = document.createElement('button'); deleteButton.type = 'button'; deleteButton.className = 'quiet-button delete-bike-button'; deleteButton.textContent = 'Eliminar'; deleteButton.addEventListener('click', () => deleteBike(profile.id)); card.querySelector('.profile-title')?.appendChild(deleteButton);
+    const deleteButton = document.createElement('button'); deleteButton.type = 'button'; deleteButton.className = 'primary-button delete-bike-button'; deleteButton.textContent = 'Eliminar ficha'; deleteButton.addEventListener('click', () => deleteBike(profile.id)); card.querySelector('.profile-title')?.appendChild(deleteButton);
     const photoSrc = profilePhoto(profile);
     if (!photoSrc.endsWith('moto-sin-foto.svg')) {
       const photo = document.createElement('img');
