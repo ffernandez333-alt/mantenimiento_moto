@@ -25,6 +25,13 @@
   storage.removeItem = key => { removeItem(key); schedulePush(); };
   async function hydrate() {
     try {
+      if (localStorage.getItem('motoRestorePending') === '1') {
+        const restored = localSnapshot();
+        const response = await fetch(endpoint, { method: 'PUT', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data: restored }) });
+        if (response.ok) localStorage.removeItem('motoRestorePending');
+        hydrating = false;
+        return;
+      }
       const response = await fetch(endpoint, { cache: 'no-store', credentials: 'include' });
       if (!response.ok) return;
       available = true;

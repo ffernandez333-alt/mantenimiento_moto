@@ -1733,6 +1733,7 @@ document.getElementById('backupFile').addEventListener('change', async event => 
       backupStatus.textContent = 'Restauración cancelada. Tus datos siguen igual.';
       return;
     }
+    localStorage.setItem('motoRestorePending', '1');
     MotoBackup.restore(localStorage, backup);
     window.location.reload();
   } catch (error) { backupStatus.textContent = `No se ha podido restaurar la copia. ${error instanceof SyntaxError ? 'El archivo no contiene un JSON válido.' : error.message}`; }
