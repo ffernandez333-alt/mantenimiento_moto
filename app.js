@@ -23,17 +23,9 @@ const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: 
 const bikeModelCatalog = { ktm250f: { brand: 'KTM', model: 'EXC 250 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-f.png' }, ktm250tpi: { brand: 'KTM', model: '250 TPI / 300 TPI', engine: '2T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' }, ktm350f: { brand: 'KTM', model: 'EXC 350 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-350-f.png' }, yamaha450: { brand: 'Yamaha', model: 'WR 450', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/yamaha-wr450-2010.jpg' } };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
-if (!Array.isArray(bikeProfiles) || !bikeProfiles.length) {
-  const starterModels = Object.entries(bikeModelCatalog).map(([key, template], index) => ({ id: `moto-${key}`, ...bikeDefaults, brand: template.brand, model: template.model, engine: template.engine, photo: template.photo, maintenancePlanId: key === 'yamaha450' ? 'yamaha-wr450-1000km' : 'ktm-base', year: index === 1 ? '2021' : '', plate: '', realHours: 0, markerHours: 0, realKm: 0, markerKm: 0 }));
-  bikeProfiles = legacyProfile ? [{ id: 'moto-1', ...bikeDefaults, ...(legacyProfile || {}) }] : starterModels;
-  localStorage.setItem('motoCatalogBackup', JSON.stringify({ createdAt: new Date().toISOString(), profiles: starterModels }));
-}
+if (!Array.isArray(bikeProfiles) || !bikeProfiles.length) bikeProfiles = [{ id: 'moto-1', ...bikeDefaults, ...(legacyProfile || {}) }];
 bikeProfiles.forEach(profile => { if (!profile.maintenanceUnit) profile.maintenanceUnit = 'hours'; if (profile.brand === 'Yamaha' && /^WR 450 \(2010\)$/i.test(profile.model || '')) profile.model = 'WR 450'; });
 localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles));
-if (!localStorage.getItem('motoCatalogBackup')) {
-  const catalogProfiles = Object.entries(bikeModelCatalog).map(([key, template], index) => ({ id: `moto-${key}`, ...bikeDefaults, brand: template.brand, model: template.model, engine: template.engine, photo: template.photo, maintenancePlanId: key === 'yamaha450' ? 'yamaha-wr450-1000km' : 'ktm-base', year: index === 1 ? '2021' : '', plate: '', realHours: 0, markerHours: 0, realKm: 0, markerKm: 0 }));
-  localStorage.setItem('motoCatalogBackup', JSON.stringify({ createdAt: new Date().toISOString(), profiles: catalogProfiles }));
-}
 let activeBikeId = localStorage.getItem('activeBikeId') || bikeProfiles[0].id;
 if (!bikeProfiles.some(profile => profile.id === activeBikeId)) activeBikeId = bikeProfiles[0].id;
 function bikeStorageKey(name) { return `${name}:${activeBikeId}`; }
@@ -48,11 +40,6 @@ function showView(view) {
   }
   if (targetView === 'componentes' && typeof syncComponentsFromEvents === 'function') {
     try { syncComponentsFromEvents(); } catch (error) { console.error('No se pudo actualizar Componentes.', error); }
-  }
-  if (targetView === 'componentes' && typeof renderComponents === 'function') renderComponents();
-  if (targetView === 'mantenimiento') {
-    if (typeof renderMaintenancePlan === 'function') renderMaintenancePlan();
-    if (typeof renderMaintenanceChecklist === 'function') renderMaintenanceChecklist();
   }
   if (targetView === 'uso' && typeof renderComponentUsageChart === 'function') renderComponentUsageChart();
   pages.forEach(page => page.classList.toggle('hidden', page.id !== `view-${targetView}`));
@@ -451,8 +438,6 @@ function renderUsageChart() {
 function renderTimeline() {
   const timeline = document.getElementById('timeline');
   if (!timeline) return;
-  const lifeAction = document.getElementById('addEventVida');
-  if (lifeAction) { lifeAction.hidden = false; lifeAction.style.display = 'inline-flex'; }
   const generatedMaintenanceKeys = new Set(events.filter(item => item?.maintenanceEventId).map(item => `${item.dateISO || ''}|${String(item.description || '').replace(/\s*\([^)]*reales\)$/, '')}`));
   const orderedEvents = events.map((item, index) => ({ item, index })).filter(({ item }) => {
     if (!item?.maintenanceEventId) {
@@ -461,8 +446,7 @@ function renderTimeline() {
     }
     return (filterType === 'all' || item.type === filterType) && (filterYear === 'all' || String(item.dateISO || '').startsWith(filterYear));
   }).sort((a, b) => { const result = String(a.item.dateISO || '').localeCompare(String(b.item.dateISO || '')); return sortDirection === 'desc' ? -result : result; });
-  timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + (orderedEvents.length ? orderedEvents.map(({ item, index }) => `<div class="timeline-event ${item.type === 'Mantenimiento' ? 'maintenance-entry' : ''}"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${eventTitle(item)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes && item.type !== "Mantenimiento" && !item.maintenanceInterval ? `<p>${safeText(item.notes)}</p>` : ""}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button><button class="event-delete" data-event-index="${index}" aria-label="Eliminar evento" title="Eliminar evento">🗑</button></div></div>`).join('') : '<div class="panel empty-state"><p>Aún no hay eventos para esta moto.</p><button type="button" class="primary-button empty-life-action">＋ Registrar evento</button></div>');
-  timeline.querySelector('.empty-life-action')?.addEventListener('click', openModal);
+  timeline.innerHTML = '<div class="timeline-date">HISTORIAL</div>' + orderedEvents.map(({ item, index }) => `<div class="timeline-event ${item.type === 'Mantenimiento' ? 'maintenance-entry' : ''}"><div class="timeline-dot ${eventClass(item.type)}"></div><div class="timeline-card"><div class="activity-icon ${eventClass(item.type)}">${eventIcon(item.type)}</div><div class="activity-main"><strong>${eventTitle(item)}</strong><span>${safeText(item.date)}${eventReadings(item) ? ` · ${safeText(eventReadings(item))}` : ''}</span>${item.notes && item.type !== "Mantenimiento" && !item.maintenanceInterval ? `<p>${safeText(item.notes)}</p>` : ""}</div><strong class="activity-cost">${safeText(item.cost || '—')}</strong><button class="event-edit" data-event-index="${index}" aria-label="Editar evento">✎</button><button class="event-delete" data-event-index="${index}" aria-label="Eliminar evento" title="Eliminar evento">🗑</button></div></div>`).join('');
   timeline.querySelectorAll('.timeline-event').forEach((node, timelineIndex) => {
     const item = orderedEvents[timelineIndex]?.item;
     if (!item?.maintenanceEventId) return;
@@ -1100,7 +1084,6 @@ function renderAllBikeProfiles() {
   selected.querySelector('.profile-id').textContent = `ID · ${activeBikeId}`;
   selected.querySelector('#bikePhoto').alt = `${bikeData.brand} ${bikeData.model}`;
   selected.querySelector('.photo-label').textContent = profilePhoto(bikeData).endsWith('moto-sin-foto.svg') ? 'Añade una foto desde Editar ficha' : `${bikeData.brand} ${bikeData.model}`;
-  if (!selected.querySelector('.delete-bike-button') && bikeProfiles.length > 1) { const button = document.createElement('button'); button.type = 'button'; button.className = 'primary-button delete-bike-button'; button.textContent = 'Eliminar ficha'; button.addEventListener('click', () => deleteBike(activeBikeId)); selected.querySelector('.profile-title')?.appendChild(button); }
   const latest = latestMaintenanceEvent();
   const selectedGrid = selected.querySelector('.detail-grid');
   if (selectedGrid) {
@@ -1122,7 +1105,6 @@ function renderAllBikeProfiles() {
     card.querySelector('h2').textContent = `${profile.brand} ${profile.model}`;
     card.querySelector('.profile-title p').textContent = `${profile.year}`;
     card.querySelector('button').addEventListener('click', () => selectBike(profile.id));
-    const deleteButton = document.createElement('button'); deleteButton.type = 'button'; deleteButton.className = 'primary-button delete-bike-button'; deleteButton.textContent = 'Eliminar ficha'; deleteButton.addEventListener('click', () => deleteBike(profile.id)); card.querySelector('.profile-title')?.appendChild(deleteButton);
     const photoSrc = profilePhoto(profile);
     if (!photoSrc.endsWith('moto-sin-foto.svg')) {
       const photo = document.createElement('img');
@@ -1145,19 +1127,6 @@ function renderAllBikeProfiles() {
     });
     others.appendChild(card);
   });
-}
-function deleteBike(id) {
-  const profile = bikeProfiles.find(item => item.id === id);
-  if (!profile || bikeProfiles.length < 2) return;
-  if (!window.confirm(`¿Eliminar la moto ${profile.brand} ${profile.model}? Sus datos de esta cuenta se conservarán en la copia de seguridad antes de borrarla.`)) return;
-  if (!localStorage.getItem('motoCatalogBackup')) localStorage.setItem('motoCatalogBackup', JSON.stringify({ createdAt: new Date().toISOString(), profiles: bikeProfiles }));
-  const deleted = JSON.parse(localStorage.getItem('motoDeletedProfiles') || '[]');
-  if (!deleted.includes(id)) deleted.push(id);
-  localStorage.setItem('motoDeletedProfiles', JSON.stringify(deleted));
-  bikeProfiles = bikeProfiles.filter(item => item.id !== id);
-  localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles));
-  Object.keys(localStorage).filter(key => key.endsWith(`:${id}`)).forEach(key => localStorage.removeItem(key));
-  activeBikeId = bikeProfiles[0].id; localStorage.setItem('activeBikeId', activeBikeId); window.location.reload();
 }
 updateBikeView();
 syncComponentsFromEvents();
@@ -1731,10 +1700,9 @@ setupMaintenanceEntryPoints();
 
 const backupPanel = document.createElement('section');
 backupPanel.className = 'panel backup-panel';
-backupPanel.innerHTML = `<h3>Copia de seguridad</h3><p>Guarda todas tus motos, historiales, planes, revisiones en curso, fotos y archivos adjuntos en un archivo. Puedes recuperarlos en este navegador o llevarlos a otro dispositivo.</p><div class="backup-actions"><button type="button" class="primary-button" id="downloadBackup">Guardar copia</button><button type="button" class="quiet-button" id="restoreBackup">Restaurar copia</button><button type="button" class="quiet-button" id="restoreCatalog">Recuperar catálogo inicial</button><input type="file" id="backupFile" accept=".json,application/json" hidden /></div><p>Al restaurar se sustituirán los datos de todas las motos. Guarda antes una copia de los datos actuales. El archivo contiene tus datos personales y adjuntos; consérvalo en un lugar privado.</p><p id="backupStatus" role="status" aria-live="polite"></p>`;
+backupPanel.innerHTML = `<h3>Copia de seguridad</h3><p>Guarda todas tus motos, historiales, planes, revisiones en curso, fotos y archivos adjuntos en un archivo. Puedes recuperarlos en este navegador o llevarlos a otro dispositivo.</p><div class="backup-actions"><button type="button" class="primary-button" id="downloadBackup">Guardar copia</button><button type="button" class="quiet-button" id="restoreBackup">Restaurar copia</button><input type="file" id="backupFile" accept=".json,application/json" hidden /></div><p>Al restaurar se sustituirán los datos de todas las motos. Guarda antes una copia de los datos actuales. El archivo contiene tus datos personales y adjuntos; consérvalo en un lugar privado.</p><p id="backupStatus" role="status" aria-live="polite"></p>`;
 document.getElementById('view-motos').appendChild(backupPanel);
 const backupStatus = document.getElementById('backupStatus');
-document.getElementById('restoreCatalog').addEventListener('click', () => { const saved = JSON.parse(localStorage.getItem('motoCatalogBackup') || 'null'); if (!saved?.profiles?.length) { backupStatus.textContent = 'No hay un catálogo inicial guardado.'; return; } if (!window.confirm('Se recuperarán las cuatro motos del catálogo inicial. ¿Continuar?')) return; bikeProfiles = saved.profiles; localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles)); activeBikeId = bikeProfiles[0].id; localStorage.setItem('activeBikeId', activeBikeId); window.location.reload(); });
 document.getElementById('downloadBackup').addEventListener('click', () => {
   try {
     saveBikeProfiles();
