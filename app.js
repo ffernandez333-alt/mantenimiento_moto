@@ -1151,6 +1151,9 @@ function deleteBike(id) {
   if (!profile || bikeProfiles.length < 2) return;
   if (!window.confirm(`¿Eliminar la moto ${profile.brand} ${profile.model}? Sus datos de esta cuenta se conservarán en la copia de seguridad antes de borrarla.`)) return;
   if (!localStorage.getItem('motoCatalogBackup')) localStorage.setItem('motoCatalogBackup', JSON.stringify({ createdAt: new Date().toISOString(), profiles: bikeProfiles }));
+  const deleted = JSON.parse(localStorage.getItem('motoDeletedProfiles') || '[]');
+  if (!deleted.includes(id)) deleted.push(id);
+  localStorage.setItem('motoDeletedProfiles', JSON.stringify(deleted));
   bikeProfiles = bikeProfiles.filter(item => item.id !== id);
   localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles));
   Object.keys(localStorage).filter(key => key.endsWith(`:${id}`)).forEach(key => localStorage.removeItem(key));
