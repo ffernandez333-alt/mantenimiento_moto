@@ -20,11 +20,11 @@ function ensureUsageView() {
 }
 ensureUsageView();
 const bikeDefaults = { brand: 'KTM', model: '250 EXC TPI', year: '2021', plate: '9038 LKN', realHours: 195, markerHours: 195, realKm: 2908, markerKm: 2908, maintenanceUnit: 'hours', itvNextDate: '2028-07-08', insuranceExpiryDate: '2026-10-16' };
-const bikeModelCatalog = { ktm250f: { brand: 'KTM', model: 'EXC 250 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-f.png' }, ktm250tpi: { brand: 'KTM', model: '250 TPI / 300 TPI', engine: '2T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' }, ktm350f: { brand: 'KTM', model: 'EXC 350 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-350-f.png' }, yamaha450: { brand: 'Yamaha', model: 'WR 450 (2010)', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/yamaha-wr450-2010.jpg' } };
+const bikeModelCatalog = { ktm250f: { brand: 'KTM', model: 'EXC 250 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-f.png' }, ktm250tpi: { brand: 'KTM', model: '250 TPI / 300 TPI', engine: '2T', maintenanceUnit: 'hours', photo: 'assets/ktm-250-exc-tpi-2021.png' }, ktm350f: { brand: 'KTM', model: 'EXC 350 F', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/ktm-350-f.png' }, yamaha450: { brand: 'Yamaha', model: 'WR 450', engine: '4T', maintenanceUnit: 'hours', photo: 'assets/yamaha-wr450-2010.jpg' } };
 const legacyProfile = JSON.parse(localStorage.getItem('motoProfile') || 'null');
 let bikeProfiles = JSON.parse(localStorage.getItem('motoProfiles') || 'null');
 if (!Array.isArray(bikeProfiles) || !bikeProfiles.length) bikeProfiles = [{ id: 'moto-1', ...bikeDefaults, ...(legacyProfile || {}) }];
-bikeProfiles.forEach(profile => { if (!profile.maintenanceUnit) profile.maintenanceUnit = 'hours'; });
+bikeProfiles.forEach(profile => { if (!profile.maintenanceUnit) profile.maintenanceUnit = 'hours'; if (profile.brand === 'Yamaha' && /^WR 450 \(2010\)$/i.test(profile.model || '')) profile.model = 'WR 450'; });
 localStorage.setItem('motoProfiles', JSON.stringify(bikeProfiles));
 let activeBikeId = localStorage.getItem('activeBikeId') || bikeProfiles[0].id;
 if (!bikeProfiles.some(profile => profile.id === activeBikeId)) activeBikeId = bikeProfiles[0].id;
