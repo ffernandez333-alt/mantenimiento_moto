@@ -19,7 +19,15 @@ export async function onRequest(context) {
   const userKey = identity.trim().toLowerCase().slice(0, 240);
   await context.env.DB.prepare('CREATE TABLE IF NOT EXISTS app_user_state (user_key TEXT PRIMARY KEY, payload TEXT NOT NULL, updated_at TEXT NOT NULL)').run();
   if (context.request.method === 'GET') {
-    const row = await context.env.DB.prepare('SELECT payload, updated_at FROM app_user_state WHERE user_key = ?').bind(userKey).first();
+    let row = await context.env.DB.prepare('SELECT payload, updated_at FROM app_user_state WHERE user_key = ?').bind(userKey).first();
+    const identityHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(userKey)))).map(value => value.toString(16).padStart(2, '0')).join('');
+    if (!row && identityHash === '2d96623cb26a9d046e2e045320d3dac380956da9dac18f86d414392e5a6bc14f') {
+      const legacy = await context.env.DB.prepare('SELECT payload, updated_at FROM app_state WHERE id = 1').first();
+      if (legacy) {
+        await context.env.DB.prepare('INSERT OR IGNORE INTO app_user_state (user_key, payload, updated_at) VALUES (?, ?, ?)').bind(userKey, legacy.payload, legacy.updated_at).run();
+        row = legacy;
+      }
+    }
     return json(row ? { data: JSON.parse(row.payload), updatedAt: row.updated_at } : { data: null, updatedAt: null }, 200, context.request);
   }
   if (context.request.method === 'PUT') {
