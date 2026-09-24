@@ -25,13 +25,6 @@
   storage.removeItem = key => { removeItem(key); schedulePush(); };
   async function hydrate() {
     try {
-      if (localStorage.getItem('motoRestorePending') === '1') {
-        const restored = localSnapshot();
-        const response = await fetch(endpoint, { method: 'PUT', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ data: restored }) });
-        if (response.ok) localStorage.removeItem('motoRestorePending');
-        hydrating = false;
-        return;
-      }
       const response = await fetch(endpoint, { cache: 'no-store', credentials: 'include' });
       if (!response.ok) return;
       available = true;
@@ -41,17 +34,6 @@
       // copia remota antigua que aún no contiene las lecturas de marcador.
       const correctedComponentKey = Object.keys(local).find(key => key.includes('componentSpreadsheetImport20260917'));
       const remoteData = { ...(remote.data || {}) };
-      // Las altas de motos deben fusionarse: una copia remota antigua no puede
-      // borrar una moto creada localmente mientras terminaba la sincronización.
-      try {
-        const localProfiles = JSON.parse(local.motoProfiles || '[]');
-        const remoteProfiles = JSON.parse(remoteData.motoProfiles || '[]');
-        if (Array.isArray(localProfiles) && Array.isArray(remoteProfiles)) {
-          const merged = [...remoteProfiles];
-          localProfiles.forEach(profile => { const index = merged.findIndex(item => item.id === profile.id); if (index >= 0) merged[index] = { ...merged[index], ...profile }; else merged.push(profile); });
-          remoteData.motoProfiles = JSON.stringify(merged);
-        }
-      } catch { /* Conserva la copia remota si los perfiles no tienen formato válido. */ }
       if (correctedComponentKey) {
         Object.keys(local).filter(key => key.startsWith('motoEvents')).forEach(key => {
           try {
