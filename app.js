@@ -209,6 +209,14 @@ document.getElementById('eventType').addEventListener('change', () => { toggleMa
 toggleMaintenanceParts();
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function formatDate(dateValue) { return new Date(`${dateValue}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', ''); }
+// Al registrar un evento, las lecturas reales parten del marcador y siguen
+// siendo editables si el marcador se cambió anteriormente.
+document.getElementById('eventHours').addEventListener('input', event => {
+  document.getElementById('eventRealHours').value = event.target.value;
+});
+document.getElementById('eventKm').addEventListener('input', event => {
+  document.getElementById('eventRealKm').value = event.target.value;
+});
 function openModal() {
   editingIndex = null;
   eventAttachmentDraft = [];
