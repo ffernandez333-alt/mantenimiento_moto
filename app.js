@@ -209,14 +209,21 @@ document.getElementById('eventType').addEventListener('change', () => { toggleMa
 toggleMaintenanceParts();
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function formatDate(dateValue) { return new Date(`${dateValue}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }).replace('.', ''); }
-// Al registrar un evento, las lecturas reales parten del marcador y siguen
-// siendo editables si el marcador se cambió anteriormente.
-document.getElementById('eventHours').addEventListener('input', event => {
-  document.getElementById('eventRealHours').value = event.target.value;
-});
-document.getElementById('eventKm').addEventListener('input', event => {
-  document.getElementById('eventRealKm').value = event.target.value;
-});
+// Al registrar un evento, las lecturas reales parten de la lectura real
+// anterior y suman únicamente el incremento del marcador.
+const recalculateEventRealReadings = () => {
+  if (editingIndex !== null) return;
+  const baseMarkerHours = Number(modal.dataset.baseMarkerHours);
+  const baseRealHours = Number(modal.dataset.baseRealHours);
+  const baseMarkerKm = Number(modal.dataset.baseMarkerKm);
+  const baseRealKm = Number(modal.dataset.baseRealKm);
+  const markerHours = Number(document.getElementById('eventHours').value);
+  const markerKm = Number(document.getElementById('eventKm').value);
+  if (Number.isFinite(baseMarkerHours) && Number.isFinite(baseRealHours) && Number.isFinite(markerHours)) document.getElementById('eventRealHours').value = Math.max(0, baseRealHours + markerHours - baseMarkerHours).toFixed(1).replace(/\.0$/, '');
+  if (Number.isFinite(baseMarkerKm) && Number.isFinite(baseRealKm) && Number.isFinite(markerKm)) document.getElementById('eventRealKm').value = Math.max(0, Math.round(baseRealKm + markerKm - baseMarkerKm));
+};
+document.getElementById('eventHours').addEventListener('input', recalculateEventRealReadings);
+document.getElementById('eventKm').addEventListener('input', recalculateEventRealReadings);
 function openModal() {
   editingIndex = null;
   eventAttachmentDraft = [];
@@ -229,6 +236,10 @@ function openModal() {
   document.getElementById('eventKm').value = Math.round(Number(bikeData.markerKm));
   document.getElementById('eventRealHours').value = Math.round(Number(bikeData.realHours));
   document.getElementById('eventRealKm').value = Math.round(Number(bikeData.realKm));
+  modal.dataset.baseMarkerHours = Number(bikeData.markerHours) || 0;
+  modal.dataset.baseRealHours = Number(bikeData.realHours) || 0;
+  modal.dataset.baseMarkerKm = Number(bikeData.markerKm) || 0;
+  modal.dataset.baseRealKm = Number(bikeData.realKm) || 0;
   maintenanceParts.querySelectorAll('input').forEach(input => { input.checked = false; });
   document.getElementById('eventComponent').selectedIndex = 0;
   document.querySelectorAll('#componentChangeRows .component-primary-label:not(:first-child)').forEach(row => row.remove());
