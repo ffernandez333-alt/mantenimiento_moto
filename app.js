@@ -3,6 +3,41 @@ const pages = document.querySelectorAll('.page');
 const breadcrumb = document.getElementById('breadcrumbCurrent');
 const sidebar = document.getElementById('sidebar');
 document.addEventListener('change', event => { if (event.target.id === 'componentSort' && typeof renderComponents === 'function') { localStorage.setItem(bikeStorageKey('componentSort'), event.target.value); renderComponents(); } });
+const searchButton = document.querySelector('.top-actions button[aria-label="Buscar"]');
+if (searchButton) {
+  const panel = document.createElement('div');
+  panel.className = 'search-panel hidden';
+  panel.innerHTML = '<div class="search-panel-head"><input type="search" placeholder="Buscar en la moto seleccionada…" aria-label="Buscar en la moto seleccionada" /><button type="button" aria-label="Cerrar búsqueda">×</button></div><div class="search-results" role="listbox"><small>Escribe para buscar eventos y componentes.</small></div>';
+  document.body.appendChild(panel);
+  const input = panel.querySelector('input'); const results = panel.querySelector('.search-results');
+  const close = () => { panel.classList.add('hidden'); input.value = ''; results.innerHTML = '<small>Escribe para buscar eventos y componentes.</small>'; };
+  const normalizeSearch = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es');
+  const search = () => {
+    const term = normalizeSearch(input.value.trim());
+    if (!term) { results.innerHTML = '<small>Escribe para buscar eventos y componentes.</small>'; return; }
+    const matches = events.map((item, index) => ({ item, index, kind: item.type === 'Sustitución de componente' ? 'Componente' : item.type, text: [item.description, item.notes, item.date, ...(item.componentChanges || [item.componentChange]).map(change => change?.name)].filter(Boolean).join(' ') })).filter(result => normalizeSearch(result.text).includes(term)).slice(0, 30);
+    results.innerHTML = matches.length ? matches.map(result => `<button type="button" class="search-result" data-event-index="${result.index}"><strong>${safeText(result.kind)}</strong><span>${safeText(result.item.description || 'Sin descripción')}</span><small>${safeText(result.item.date || '')}</small></button>`).join('') : '<small>No se han encontrado resultados.</small>';
+  };
+  searchButton.addEventListener('click', () => { panel.classList.toggle('hidden'); if (!panel.classList.contains('hidden')) input.focus(); });
+  panel.querySelector('[aria-label="Cerrar búsqueda"]').addEventListener('click', close);
+  input.addEventListener('input', search);
+  results.addEventListener('click', event => { const result = event.target.closest('.search-result'); if (!result) return; const index = Number(result.dataset.eventIndex); close(); eventReturnView = 'vida'; showView('vida'); setTimeout(() => document.querySelector(`#timeline .event-edit[data-event-index="${index}"]`)?.click(), 0); });
+  document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); panel.classList.remove('hidden'); input.focus(); } if (event.key === 'Escape' && !panel.classList.contains('hidden')) close(); });
+}
+const notificationButton = document.querySelector('.top-actions button[aria-label="Notificaciones"]');
+if (notificationButton) {
+  const panel = document.createElement('div'); panel.className = 'notification-panel hidden';
+  document.body.appendChild(panel);
+  const notificationItems = () => {
+    const items = []; const now = new Date(); const inDays = date => Math.ceil((new Date(`${date}T12:00:00`) - now) / 86400000);
+    [['itvNextDate', 'ITV', 'la ITV'], ['insuranceExpiryDate', 'Seguro', 'el seguro']].forEach(([field, label, text]) => { const date = bikeData[field]; if (!date) return; const days = inDays(date); if (days <= 30) items.push({ label, text: days < 0 ? `${text} caducado` : `${text} caduca en ${days} días`, date }); });
+    [['Cada 20 horas', 'Mantenimiento rápido'], ['Cada 40 horas', 'Intervención ampliada']].forEach(([schedule, label]) => { try { const result = maintenanceSchedule(schedule); if (result?.due || result?.overdue || result?.status === 'due') items.push({ label, text: result.overdue ? 'mantenimiento vencido' : 'mantenimiento próximo', date: result.dueDate || '' }); } catch {} });
+    return items;
+  };
+  const renderNotifications = () => { const items = notificationItems(); notificationButton.querySelector('i')?.classList.toggle('active', items.length > 0); panel.innerHTML = `<div class="notification-panel-head"><strong>Notificaciones</strong><button type="button" aria-label="Cerrar notificaciones">×</button></div>${items.length ? items.map(item => `<div class="notification-item"><b>${safeText(item.label)}</b><span>${safeText(item.text)}</span><small>${safeText(item.date || '')}</small></div>`).join('') : '<small>No hay avisos pendientes.</small>'}`; panel.querySelector('[aria-label="Cerrar notificaciones"]').addEventListener('click', () => panel.classList.add('hidden')); };
+  notificationButton.addEventListener('click', () => { panel.classList.toggle('hidden'); if (!panel.classList.contains('hidden')) renderNotifications(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !panel.classList.contains('hidden')) panel.classList.add('hidden'); });
+}
 
 const labels = { hoy: 'Mis motos', dashboard: 'Mis motos', motos: 'Mis motos', vida: 'Libro de vida', mantenimiento: 'Mantenimiento', componentes: 'Componentes', uso: 'Gráficos', tecnico: 'Banco técnico' };
 function ensureUsageView() {
